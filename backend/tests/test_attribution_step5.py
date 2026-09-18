@@ -582,8 +582,11 @@ def test_span_dto_rejects_untrusted_identity_or_label(field: str) -> None:
     assert "SYNTHETIC-V7" not in str(error.value)
 
 
-def test_resource_print_failure_prevents_all_creation() -> None:
+def test_resource_print_failure_prevents_all_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tool = module()
+    monkeypatch.setattr(tool, "APPROVED_ROOT", tmp_path / "approved")
     created: list[Path] = []
     printed: list[Path] = []
     paths = (tool.APPROVED_ROOT / "unit-a", tool.APPROVED_ROOT / "unit-b")
@@ -598,8 +601,11 @@ def test_resource_print_failure_prevents_all_creation() -> None:
     assert not created
 
 
-def test_resource_list_is_fully_printed_before_any_creation() -> None:
+def test_resource_list_is_fully_printed_before_any_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tool = module()
+    monkeypatch.setattr(tool, "APPROVED_ROOT", tmp_path / "approved")
     events: list[tuple[str, Path]] = []
     paths = (tool.APPROVED_ROOT / "unit-a", tool.APPROVED_ROOT / "unit-b")
     tool.prepare_directories(
@@ -611,8 +617,11 @@ def test_resource_list_is_fully_printed_before_any_creation() -> None:
 
 
 @pytest.mark.parametrize("path_kind", ["parent", "traversal", "duplicate", "existing", "relative"])
-def test_resource_boundary_rejects_before_print_or_creation(path_kind: str) -> None:
+def test_resource_boundary_rejects_before_print_or_creation(
+    path_kind: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tool = module()
+    monkeypatch.setattr(tool, "APPROVED_ROOT", tmp_path / "approved")
     paths = {
         "parent": (tool.APPROVED_ROOT.parent,),
         "traversal": (tool.APPROVED_ROOT / ".." / "other",),
@@ -627,8 +636,11 @@ def test_resource_boundary_rejects_before_print_or_creation(path_kind: str) -> N
 
 
 @pytest.mark.parametrize("representation", ["path", "string", "readonly_uri"])
-def test_sqlite_audit_accepts_only_registered_targets(representation: str) -> None:
+def test_sqlite_audit_accepts_only_registered_targets(
+    representation: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tool = module()
+    monkeypatch.setattr(tool, "APPROVED_ROOT", tmp_path / "approved")
     database = tool.APPROVED_ROOT / "unit-a" / "observability.sqlite3"
     target = {
         "path": database,
@@ -639,8 +651,11 @@ def test_sqlite_audit_accepts_only_registered_targets(representation: str) -> No
 
 
 @pytest.mark.parametrize("variant", ["write_uri", "extra_query", "other", "relative", "object"])
-def test_sqlite_audit_rejects_unregistered_or_changed_uri(variant: str) -> None:
+def test_sqlite_audit_rejects_unregistered_or_changed_uri(
+    variant: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     tool = module()
+    monkeypatch.setattr(tool, "APPROVED_ROOT", tmp_path / "approved")
     database = tool.APPROVED_ROOT / "unit-a" / "observability.sqlite3"
     target = {
         "write_uri": database.as_uri() + "?mode=rwc",

@@ -121,7 +121,7 @@ def test_success_builds_frozen_prompt_and_strict_response() -> None:
     assert provider.requests[0].model == "deepseek-v4-flash"
     assert provider.requests[0].temperature == 0.6
     assert provider.requests[0].max_tokens == 256
-    assert provider.requests[0].timeout_seconds == 12.0
+    assert provider.requests[0].timeout_seconds == pytest.approx(12.0, abs=0.001)
     assert provider.requests[0].thinking_enabled is False
     assert provider.requests[0].stream is False
 

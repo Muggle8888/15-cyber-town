@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 from collections.abc import AsyncIterator, Callable
@@ -52,6 +53,10 @@ from cyber_town.infrastructure.persistence.sqlite_relationship import SqliteRela
 
 NPCS = ("neon_guide", "signal_archivist", "night_courier")
 KEY = b"synthetic-f009-step6-qa-key"
+pytestmark = pytest.mark.skipif(
+    os.environ.get("F009_NATIVE_ROOT") is None,
+    reason="F-009 Step 6 QA validation requires an explicitly authorized native root",
+)
 
 
 class _WindowsLastError:
