@@ -367,7 +367,7 @@ async def _remote_client(url: str) -> AsyncIterator[RemoteClient]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL,
         env=safe_env,
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
     )
     try:
         assert process.stdout is not None

@@ -688,7 +688,7 @@ async def run_case(root: Path, label: str) -> dict[str, Any]:
 def main() -> None:
     root = ROOT.resolve(strict=True)
     for path in (ROOT, *ROOT.parents):
-        if path.lstat().st_file_attributes & 0x400:
+        if getattr(path.lstat(), "st_file_attributes", 0) & 0x400:
             raise ValueError("Synthetic root boundary invalid")
     output = root / "diagnostics-01"
     planned = [output, output / "summary.json"]

@@ -16,6 +16,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
@@ -35,6 +36,27 @@ def load_s1_runtime() -> Any:
 
 
 s1_runtime: Any = load_s1_runtime()
+
+_FALLBACK_WINDOWS_LAST_ERROR: ContextVar[int] = ContextVar(
+    "f009_fallback_windows_last_error", default=0
+)
+
+
+def set_windows_last_error(ctypes_module: Any, value: int) -> None:
+    """Preserve Win32 last-error semantics in non-Windows synthetic tests."""
+    setter = getattr(ctypes_module, "set_last_error", None)
+    if setter is None:
+        _FALLBACK_WINDOWS_LAST_ERROR.set(value)
+        return
+    setter(value)
+
+
+def get_windows_last_error(ctypes_module: Any) -> int:
+    """Read the real Win32 last error or the synthetic cross-platform fallback."""
+    getter = getattr(ctypes_module, "get_last_error", None)
+    if getter is None:
+        return _FALLBACK_WINDOWS_LAST_ERROR.get()
+    return int(getter())
 
 QA_ROOT = Path(r"E:\Agent\cyber-town-f009-step6-qa")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -402,7 +424,10 @@ def canonical_diagnostic(expected: Path, resolved: Path) -> dict[str, object]:
                     state="present",
                     device=str(status.st_dev),
                     file_id=str(status.st_ino),
-                    reparse=bool(status.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT),
+                    reparse=bool(
+                        getattr(status, "st_file_attributes", 0)
+                        & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                    ),
                 )
             chain.append(row)
     return {
@@ -423,7 +448,7 @@ def validate_path(path: Path) -> Path:
         raise RuntimeError("step6_resource_outside_authorized_root")
     for parent in (absolute, *absolute.parents):
         try:
-            attributes = parent.lstat().st_file_attributes
+            attributes = getattr(parent.lstat(), "st_file_attributes", 0)
         except FileNotFoundError:
             continue
         if attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
@@ -1225,7 +1250,7 @@ def kernel_api() -> Any:
     import ctypes
     from ctypes import wintypes as w
 
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel = vars(ctypes)["WinDLL"]("kernel32", use_last_error=True)
     signatures = {
         "CreateFileW": (
             [w.LPCWSTR, w.DWORD, w.DWORD, w.LPVOID, w.DWORD, w.DWORD, w.HANDLE],
@@ -1407,7 +1432,7 @@ class NativeWatcher:
             None,
         ):
             self.failure_details.update(
-                api="ReadDirectoryChangesW", win32_error=ctypes.get_last_error()
+                api="ReadDirectoryChangesW", win32_error=get_windows_last_error(ctypes)
             )
             raise RuntimeError("step6_native_watch_arm_failed")
 
@@ -1673,14 +1698,14 @@ class NativeWatcher:
                     continue
                 if state != 0:
                     if state == 0xFFFFFFFF:
-                        self.failure_details["win32_error"] = ctypes.get_last_error()
+                        self.failure_details["win32_error"] = get_windows_last_error(ctypes)
                     raise RuntimeError("step6_native_watch_wait_failed")
                 count = w.DWORD()
                 self.failure_details.update(stage="read", api="GetOverlappedResult")
                 if not self.kernel.GetOverlappedResult(
                     self.handle, ctypes.byref(self.overlapped), ctypes.byref(count), False
                 ):
-                    win32_error = ctypes.get_last_error()
+                    win32_error = get_windows_last_error(ctypes)
                     self.failure_details["win32_error"] = win32_error
                     if self.stop_requested.is_set() and win32_error == 995:
                         break
@@ -2653,7 +2678,10 @@ def protected_cache_metadata() -> dict[str, tuple[int, int, int, int]]:
                 continue
             for path in (root, *root.rglob("*")):
                 status = path.lstat()
-                if status.st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                if (
+                    getattr(status, "st_file_attributes", 0)
+                    & stat.FILE_ATTRIBUTE_REPARSE_POINT
+                ):
                     raise RuntimeError("step6_protected_cache_reparse")
                 result[str(path)] = (
                     status.st_dev,
@@ -4898,13 +4926,13 @@ class StartupProcessAPI:
         size, image = w.DWORD(32768), c.create_unicode_buffer(32768)
         pid = int(self.kernel.GetProcessId(handle))
         if not pid:
-            code = c.get_last_error()
+            code = get_windows_last_error(c)
             raise StartupIdentityError("GetProcessId", code, None)
         if not self.kernel.GetProcessTimes(handle, *(c.byref(item) for item in times)):
-            code = c.get_last_error()
+            code = get_windows_last_error(c)
             raise StartupIdentityError("GetProcessTimes", code, pid)
         if not self.kernel.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)):
-            code = c.get_last_error()
+            code = get_windows_last_error(c)
             raise StartupIdentityError("QueryFullProcessImageNameW", code, pid)
         return {
             "pid": pid,
@@ -4969,7 +4997,7 @@ class StartupProcessAPI:
 
     def terminate(self, handle: Any) -> int | None:
         if not self.kernel.TerminateProcess(handle, 1):
-            return int(self.ctypes.get_last_error())
+            return get_windows_last_error(self.ctypes)
         return None
 
     def wait(self, handle: Any) -> None:
@@ -5230,8 +5258,9 @@ def startup_report_owned_cleanup(
         kind = "none" if problem is None else "unknown"
         if isinstance(problem, OSError):
             kind = "oserror"
-            if type(problem.winerror if hasattr(problem, "winerror") else None) is int:
-                code, source = problem.winerror, "winerror"
+            winerror = getattr(problem, "winerror", None)
+            if type(winerror) is int:
+                code, source = winerror, "winerror"
             elif type(problem.errno) is int:
                 code, source = problem.errno, "errno"
         elif isinstance(problem, subprocess.TimeoutExpired):

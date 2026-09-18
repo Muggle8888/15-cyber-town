@@ -54,6 +54,26 @@ NPCS = ("neon_guide", "signal_archivist", "night_courier")
 KEY = b"synthetic-f009-step6-qa-key"
 
 
+class _WindowsLastError:
+    """Use the real Win32 slot or the QA module's Linux-safe synthetic slot."""
+
+    @staticmethod
+    def get() -> int:
+        import ctypes
+
+        from scripts import f009_step6_qa as qa
+
+        return qa.get_windows_last_error(ctypes)
+
+    @staticmethod
+    def set(value: int) -> None:
+        import ctypes
+
+        from scripts import f009_step6_qa as qa
+
+        qa.set_windows_last_error(ctypes, value)
+
+
 def test_migration_digest_batch_contract(native_test_root: Path) -> None:
     from scripts import f009_step6_qa as qa
 
@@ -444,18 +464,18 @@ def test_observer_receive_failure_contract(case: str, tmp_path: Path) -> None:
 
     def wait(*args: Any) -> int:
         calls.append("wait")
-        ctypes.set_last_error(5)
+        _WindowsLastError.set(5)
         return 0xFFFFFFFF if case == "wait" else 0
 
     def read(handle: Any, overlapped: Any, count: Any, blocking: Any) -> bool:
         calls.append("read")
         ctypes.cast(count, ctypes.POINTER(w.DWORD))[0] = 0 if case in {"zero", "ledger"} else 16
-        ctypes.set_last_error(6)
+        _WindowsLastError.set(6)
         return case != "read"
 
     def arm(*args: Any) -> bool:
         calls.append("arm")
-        ctypes.set_last_error(123)
+        _WindowsLastError.set(123)
         return case != "rearm"
 
     def record(raw: bytes) -> None:
@@ -463,7 +483,7 @@ def test_observer_receive_failure_contract(case: str, tmp_path: Path) -> None:
         raise RuntimeError("step6_native_event_malformed")
 
     def sink(label: str, payload: str) -> None:
-        ctypes.set_last_error(999)  # A later call must not overwrite captured diagnostics.
+        _WindowsLastError.set(999)  # A later call must not overwrite captured diagnostics.
         if case == "ledger":
             raise OSError("synthetic sink failure")
         records.append(json.loads(payload))
@@ -1965,14 +1985,12 @@ class StartupIdentityKernelStub:
         self.QueryFullProcessImageNameW = self.query_full_process_image_name
 
     def response(self, name: str, handle: int) -> bool:
-        import ctypes
-
         self.owner.calls.append(name)
         pid = self.owner.handles[handle]
         fail = name == self.owner.fail_api and (
             not self.owner.after_exit or not self.owner.states[pid]["alive"]
         )
-        ctypes.set_last_error(31 if fail else 123)
+        _WindowsLastError.set(31 if fail else 123)
         return not fail
 
     def get_process_id(self, handle: int) -> int:
@@ -2014,22 +2032,18 @@ class StartupIdentityFailureStub(StartupAPIStub):
         return self.real_api.identity(handle)
 
     def close(self, handle: int) -> None:
-        import ctypes
-
         super().close(handle)
         self.closed.append(handle)
-        ctypes.set_last_error(999)
+        _WindowsLastError.set(999)
 
 
 @pytest.mark.parametrize(
     "api_name", ("GetProcessId", "GetProcessTimes", "QueryFullProcessImageNameW")
 )
 def test_startup_identity_api_failure(api_name: str) -> None:
-    import ctypes
-
     from scripts import f009_step6_qa as qa
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
     api = StartupIdentityFailureStub()
     api.fail_api = api_name
     try:
@@ -2042,7 +2056,7 @@ def test_startup_identity_api_failure(api_name: str) -> None:
         assert api.calls == order[: order.index(api_name) + 1]
         assert record["api"] == api_name
         assert record["win32_error"] == 31
-        assert ctypes.get_last_error() == 999
+        assert _WindowsLastError.get() == 999
         assert record["stage"] == "initial_bind"
         assert record["process_role"] == "business"
         assert record["handle_role"] == "query"
@@ -2051,17 +2065,15 @@ def test_startup_identity_api_failure(api_name: str) -> None:
         assert record["created_100ns"] is None
         assert not api.handles and len(api.closed) == 1 and not api.terminated
     finally:
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize("natural", (False, True))
 @pytest.mark.parametrize("alias", (False, True))
 def test_startup_identity_after_exit(natural: bool, alias: bool) -> None:
-    import ctypes
-
     from scripts import f009_step6_qa as qa
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
     api = StartupIdentityFailureStub()
     launcher = qa.StartupProcess(api, 10, 1, 99, {"python"}, role="launcher")
     business = qa.startup_bind_business(
@@ -2099,18 +2111,16 @@ def test_startup_identity_after_exit(natural: bool, alias: bool) -> None:
         launcher.close()
         assert not api.handles
         assert len(api.closed) == len(set(api.closed)) == api.counter
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize(
     "bad", ("image_query", "wrong_pid", "wrong_parent", "too_old", "wrong_image")
 )
 def test_startup_exited_initial_binding_rejected(bad: str) -> None:
-    import ctypes
-
     from scripts import f009_step6_qa as qa
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
     api = StartupIdentityFailureStub()
     api.states[20] = {"alive": False, "exit_code": 7, "exit_code_available": True}
     code = "step6_startup_process_ownership_mismatch"
@@ -2132,7 +2142,7 @@ def test_startup_exited_initial_binding_rejected(bad: str) -> None:
             qa.StartupProcess(api, 20, 10, 100, {"foreign"} if bad == "wrong_image" else {"python"})
         assert not api.handles and not api.terminated and len(api.closed) == 1
     finally:
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize(
@@ -2142,8 +2152,6 @@ def test_startup_exited_initial_binding_rejected(bad: str) -> None:
     "stage", ("observation", "stop_entry", "termination_handle", "pre_terminate")
 )
 def test_startup_live_identity_failure(api_name: str, stage: str) -> None:
-    import ctypes
-
     from scripts import f009_step6_qa as qa
 
     class StagedAPI(StartupIdentityFailureStub):
@@ -2157,7 +2165,7 @@ def test_startup_live_identity_failure(api_name: str, stage: str) -> None:
             self.fail_api = api_name if self.query_count == self.fail_at else None
             return super().identity(handle)
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
     api = StagedAPI()
     process = qa.StartupProcess(api, 20, 10, 100, {"python"}, role="business")
     before = process.check()
@@ -2178,7 +2186,7 @@ def test_startup_live_identity_failure(api_name: str, stage: str) -> None:
     finally:
         process.close()
         assert not api.handles and len(api.closed) == len(set(api.closed)) == api.counter
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize("mode", ("alive", "exited", "unknown_code", "invalid_handle"))
@@ -2285,11 +2293,11 @@ def test_startup_termination_error_capture(succeeds: bool) -> None:
 
     from scripts import f009_step6_qa as qa
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
 
     def terminate(handle: int, code: int) -> bool:
         assert handle == 42 and code == 1
-        ctypes.set_last_error(5)
+        _WindowsLastError.set(5)
         return succeeds
 
     api = qa.StartupProcessAPI.__new__(qa.StartupProcessAPI)
@@ -2297,10 +2305,10 @@ def test_startup_termination_error_capture(succeeds: bool) -> None:
     api.kernel = SimpleNamespace(TerminateProcess=terminate)
     try:
         saved = api.terminate(42)
-        ctypes.set_last_error(999)
+        _WindowsLastError.set(999)
         assert saved == (None if succeeds else 5)
     finally:
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize("mode", ("exited", "alive", "invalid_handle", "unknown_code"))
@@ -2403,12 +2411,11 @@ def test_startup_exit_batch_contract(index: int, native_test_root: Path) -> None
 def test_startup_identity_report_chain(
     tmp_path: Path, api_name: str, role: str, stage: str
 ) -> None:
-    import ctypes
     from types import SimpleNamespace
 
     from scripts import f009_step6_qa as qa
 
-    previous = ctypes.get_last_error()
+    previous = _WindowsLastError.get()
     api = StartupIdentityFailureStub()
     process = qa.StartupProcess(api, 20, 10, 100, {"python"}, role=role)
     api.fail_api = api_name
@@ -2425,7 +2432,7 @@ def test_startup_identity_report_chain(
             SimpleNamespace(when="call", excinfo=SimpleNamespace(value=caught.value)),
         )
         process.close()
-        assert ctypes.get_last_error() == 999
+        assert _WindowsLastError.get() == 999
         reporter.pytest_runtest_logreport(
             SimpleNamespace(
                 nodeid="synthetic::identity",
@@ -2451,7 +2458,7 @@ def test_startup_identity_report_chain(
     finally:
         if process.handle in api.handles:
             process.close()
-        ctypes.set_last_error(previous)
+        _WindowsLastError.set(previous)
 
 
 @pytest.mark.parametrize("bad", ("extra", "api", "stage", "pid", "boolean", "error", "large"))
@@ -3657,7 +3664,8 @@ def test_popen_cleanup_report_semantics(
     calls: list[str] = []
     handle = object()
     denied = PermissionError(5, "synthetic-secret")
-    denied.winerror = 5
+    winerror_field = "winerror"
+    setattr(denied, winerror_field, 5)
 
     def terminate_process(target: object, code: int) -> None:
         assert target is handle and code == 1
@@ -5023,7 +5031,7 @@ def test_qa_space_performance_binding_rejects_changed_identity_after_restore(
             return SimpleNamespace(
                 st_dev=result.st_dev,
                 st_ino=result.st_ino + 1,
-                st_file_attributes=result.st_file_attributes,
+                st_file_attributes=getattr(result, "st_file_attributes", 0),
             )
         return result
 
@@ -6351,7 +6359,6 @@ def test_qa_command_scope_restores_environment_and_temp(
 def test_qa_windows_disappearance_keeps_exact_canonical_dos_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import ctypes
     import ntpath
 
     from scripts import f009_step6_qa as qa
@@ -6370,7 +6377,7 @@ def test_qa_windows_disappearance_keeps_exact_canonical_dos_identity(
         calls.append(path)
         if len(calls) == 1:
             return "\\\\?\\" + str(target)
-        raise ctypes.WinError(2)
+        raise FileNotFoundError(2, "synthetic path disappeared")
 
     monkeypatch.setattr(ntpath, "_getfinalpathname", simulate)
     assert qa.validate_path(target) == target
@@ -7005,6 +7012,7 @@ def test_qa_godot_rename_notification_strictly_revalidates_paths_and_identity(
         if threading.get_ident() != owner_thread or path not in {parent, target}:
             return status
         fields = {name: getattr(status, name) for name in dir(status) if name.startswith("st_")}
+        fields.setdefault("st_file_attributes", 0)
         if path == parent:
             if case == "parent_reparse":
                 fields["st_file_attributes"] |= stat.FILE_ATTRIBUTE_REPARSE_POINT
