@@ -4,7 +4,11 @@
 
 ## 当前结论
 
-历史quality08/09保持已用；R6 observer修复、tool16/R7、最终quality10和固定性能1+5均通过。Step 7按批准合同提交119个路径并推送 `origin/feat/f-009-delivery`；远端SHA与本地一致，ahead/behind=`0/0`。当前状态为 `COMPLETE + CONSUMED`，`step6_complete=true`、`step7_branch_pushed=true`；唯一下一项是等待PR授权，未创建PR、未合并或修改main。
+F-009 Step 0—6、最终quality10、固定性能1+5及Step 7交付实现均已完成。归档包装提交 `265a544`、跨平台类型兼容提交 `aefa027`、通用CI与Windows专项验收边界提交 `4991f31` 已推送PR #13；HEAD `4991f317`的Quality run `35342268748`全绿。当前任务卡与实施计划已准备归档，最终归档HEAD仍须通过CI后才能合并。
+
+两个finding已分别归类：`docs/archive/F-009-过程记录-20260905/evidence.md` 的HEAD blob为36,115,596 bytes，超过全局5 MiB文本上限，属于 `archive_packaging_policy_conflict`，且该大文件正文尚未被当前门禁验证；`manifest.json` 的 `sensitive_scan.findings.github_live_token` 值为空数组、元素数0、真实token/私钥签名匹配0，属于 `deterministic_scanner_false_positive`。扫描器、包装入口和workflow与 `origin/main` 同blob，`environment_drift=false`。这不是产品、性能或环境失败，但仍构成最终交付验证缺口。
+
+R2实际产生9个连续分片，范围2,562,794—4,194,242 bytes，均为有效UTF-8且低于4 MiB固定上限；机器索引和manifest均可严格JSON解析。R3定向扫描入口、索引、manifest和9片后0 finding，`content_verified_by_current_gate=true`。随后正式CI完整执行敏感信息前后门、静态、schema、Godot、两组集成及pytest并通过；未重跑Step 6的quality10或性能矩阵。
 
 只读诊断确认：活动批次的drain等待循环每轮执行完整batch/recovery/identity扫描，当前等价检查6.374616秒；循环在耗时检查后先判deadline而未复核marker。R4/R6均有marker action3、约20秒失败及随后995，现有tmp_path测试不覆盖活动根容量扫描。最小修复只移除等待循环内的重复全树check，确认后仍执行完整check，不改10秒超时或安全边界。
 

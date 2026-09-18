@@ -4,7 +4,63 @@
 
 ## 当前结论
 
-B1、Q1、B2 与R2已完成；历史quality08/09保持已用。QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过；Step 7限定分支已推送，下一项仅等待PR授权。
+B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7限定分支与PR #13已完成归档包装、跨平台CI修复及首轮绿色Quality门禁；当前任务卡与实施计划已准备随同一PR归档。最终归档HEAD必须再次CI全绿后才可合并。
+
+## 2026-09-18 Step 7交付CI与归档准备证据
+
+归档包装提交 `265a5441d44eef8ba1ae261a7d950271fabb6139` 精确包含12个归档目标；工作树与暂存索引均按机器索引重组为36,115,596 bytes，SHA256保持 `7faa58c14a36029de2864fc410fcdd6bfd2e15ee648ac4079141e708fba979`。ignore检查、完整仓库敏感扫描和`git diff --cached --check`均通过后推送。Quality run [`35340779561`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35340779561) 在Linux mypy阶段失败：4个QA/测试文件共36项Windows专属属性类型错误；敏感信息门、lock和Ruff已通过。该失败分类为Step 7交付环境兼容缺陷，不是产品、性能或安全扫描失败。
+
+提交 `aefa027ca11d385b1e61094d56821d996cd1f2d0` 只修改上述4个文件，为Windows last-error语义增加非Windows synthetic fallback，并用可移植属性读取保持Windows真实行为。提交前Ruff、mypy 132个源文件、42个相关用例、定向敏感扫描和diff检查均通过。Quality run [`35341763570`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35341763570) 已通过敏感信息前门、lock、Ruff、mypy、schema、Godot import/unit、connectivity和dialogue-connectivity，随后pytest以2,503 passed、133 skipped、192 failed、247 errors停止。439项非通过精确归类为：F-009 Step 6专项QA在无授权Windows根的通用Linux运行中428项、Step 5硬编码Windows根的归因测试10项、deadline剩余时间精确浮点断言1项。
+
+提交 `4991f317f6b3a86c1751bfb71f95f58d651bc993` 将F-009 Step 6专项套件限定为仅在显式`F009_NATIVE_ROOT`授权上下文收集执行；QA runner的`native_session`在正式tool/readiness/quality批次中会在pytest收集前设置该变量，因此历史Step 6覆盖语义不变。5个归因测试改用pytest临时绝对根，deadline断言改为1毫秒绝对容差。提交前Ruff、mypy 132文件、受影响测试16 passed/6 context-skipped、敏感扫描0 finding及diff检查均通过。
+
+Quality run [`35342268748`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35342268748) 在 `4991f317` 上completed/success：ignore与敏感信息前后门、lock、Ruff、mypy、schema、Godot import/unit、9场景connectivity、10基础+multi-NPC dialogue-connectivity及pytest全部通过；pytest为2,106 passed、969 skipped、0 failed/error。新增的836个skip全部来自缺少显式授权根时不运行F-009 Windows专项套件；原133个历史条件skip保持。未运行Step 6 quality10、性能1+5或真实Provider，未启动持续业务服务。
+
+完整F-009活动任务卡与实施计划已复制到 `docs/archive/task-cards/F-009-safety-cost-performance.md` 和 `F-009-implementation-plan.md`；`current-task.md`与当前实施计划已重置为无活动任务。此归档提交只表示“归档已准备、以PR合并生效”；它改变PR HEAD，必须等待该HEAD的新Quality CI全绿后才允许squash merge。merge SHA与最终CI由GitHub PR #13记录，合并后只做远端main与PR状态只读核对，不为抄写merge SHA再建第二个PR。
+
+## 2026-09-18 Step 7-R3 定向敏感信息preflight证据
+
+执行前正式仓、功能worktree、PR #13、base/head及旧Quality run均未漂移；staged为0，Git变化精确为R2的16个授权路径。扫描器、wrapper和workflow无工作区修改。
+
+唯一一次入口为项目既有 `.venv`、`PYTHONPATH=backend/src`、`python -B`，直接调用 `cyber_town.quality.scan_paths`。固定目标12个：归档入口、机器索引、manifest以及 `part-001.md` 至 `part-009.md`。实际运行1/1，exit code=0，finding_count=0；输出没有匹配原文或疑似敏感值。
+
+本次没有调用 `scan_repository`、`_check_repository_policies` 或 `scripts/quality.py`，没有运行Ruff、mypy、pytest、Godot、完整quality、CI或服务；没有修改归档、扫描器、测试、门槛或workflow。R3关闭了R2分片正文的定向内容验证缺口，`content_verified_by_current_gate=true`；完整仓库最终结论仍以推送后新HEAD的Quality CI为准。
+
+## 2026-09-18 Step 7-R2 归档包装修复与完整性证据
+
+执行前正式仓仍为 `feat/f-009-delivery@8a88c571eeae478f494c4e1ab7ab456fbe049280`、upstream ahead/behind=`0/0`，只有R0/R1四份治理文档变化；功能worktree仍只保留既有 `AGENTS.md`。PR #13保持OPEN、非Draft、MERGEABLE/UNSTABLE，base/head未变，唯一Quality run仍为 `35333874674` completed/failure。
+
+拆分源严格使用 `HEAD:docs/archive/F-009-过程记录-20260905/evidence.md`：原Git blob为36,115,596 bytes，SHA256=`7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979`。源是有效UTF-8，共203,810行，最大单行29,725 bytes，满足固定换行边界拆分前置。
+
+R2只在UTF-8完整换行边界拆分，生成 `evidence.parts/part-001.md` 至 `part-009.md` 共9片；最小2,562,794 bytes、最大4,194,242 bytes，全部大于0、不超过4,194,304 bytes且严格低于5,242,880 bytes。所有分片均可UTF-8解码，编号连续且无重复或缺号。
+
+机器索引为 `docs/archive/F-009-过程记录-20260905/evidence.index.json`，入口仍为同目录 `evidence.md`，manifest为同目录 `manifest.json`。按索引顺序原始字节连接9片，重组结果为36,115,596 bytes，SHA256仍为 `7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979`。索引保留manifest既有来源记录36,275,701 bytes/SHA256 `3b03fcef07d1784f41d39660935a908874995d8c8eee854bbb1490042ec85f74`，没有丢弃或摘要化历史字节流。
+
+`manifest.json` 的空数组finding键已从 `github_live_token` 改为 `github_live_token_matches`，值仍为空数组；其他finding及patterns历史含义保持。机器索引与manifest均通过重复键拒绝式JSON解析，入口、索引、manifest及全部分片均低于5 MiB。R2修复1/1及离线完整性核验1/1已用。
+
+本轮未调用 `scan_repository`、`scan_paths`、`_check_repository_policies` 或 `scripts/quality.py`，未运行Ruff、mypy、pytest、Godot、quality、性能、CI或服务；未执行git add、commit、push或PR操作。因此当前只证明包装和无损重组，`content_verified_by_current_gate=false`，不得宣称归档正文已通过敏感信息门禁。下一项仍需用户单独批准一次定向preflight。
+
+## 2026-09-18 Step 7 PR #13 CI只读诊断结论
+
+诊断前后只读复核一致：正式仓为 `feat/f-009-delivery@8a88c571eeae478f494c4e1ab7ab456fbe049280`，upstream=`origin/feat/f-009-delivery`、ahead/behind=`0/0`、`origin/main=1a4fc2cdf142b00f823bebf9b2abe6e74ba23ab3`；除R0已登记的四份治理文档外无新增变化。功能worktree为 `feat/f-009-safety-cost-performance@69da08982760cff23736a37cdd25c2c779a9ce36`，只保留既有未暂存 `AGENTS.md`。PR [#13](https://github.com/Muggle8888/15-cyber-town/pull/13) 仍为OPEN、非Draft、MERGEABLE/UNSTABLE，base/head未变；只有 [Quality run 35333874674](https://github.com/Muggle8888/15-cyber-town/actions/runs/35333874674) 且仍为completed/failure。`environment_drift=false`。
+
+`docs/archive/F-009-过程记录-20260905/evidence.md` 的Git HEAD blob为36,115,596 bytes；扫描器 `MAX_TEXT_FILE_BYTES=5 * 1024 * 1024`，对超过该值且不是识别二进制的内容直接记录 `oversized_text_file` 并跳过正文扫描。因此该finding分类为 `archive_packaging_policy_conflict`，`content_verified_by_current_gate=false`，形成 `final_delivery_validation_gap=true`。本诊断没有读取、复制或重写该大文件正文。
+
+`docs/archive/F-009-过程记录-20260905/manifest.json` 中 `sensitive_scan.findings.github_live_token` 的值类型为empty array、元素数为0；GitHub/OpenAI/AWS token及private-key-header四类签名匹配均为0。结构化扫描器因字段名以 `TOKEN` 结尾且值是非字符串、非null容器而无条件生成 `credential_assignment`。因此该finding分类为 `deterministic_scanner_false_positive`，不是已确认凭据或安全事件。
+
+`backend/src/cyber_town/quality.py`、`scripts/quality.py` 与 `.github/workflows/quality.yml` 在PR HEAD和 `origin/main` 的Git blob分别完全一致；归档文件只由提交 `165aa3e` 引入，PR CI是119文件最终组装后的首次正式扫描。以上结论来自 `git cat-file -s`、`git rev-parse <ref>:<path>`、`git log --follow`、静态源码检索、`gh pr view`、`gh run list/view --log-failed`，未运行本地扫描器、测试、quality或服务。
+
+候选最小修复尚未授权：维持全局5 MiB上限；不按目录skip、不压缩或伪装二进制；把大证据按确定性顺序拆为每片小于5 MiB的文本，并用小型索引记录顺序、每片字节数/SHA256、原文件整体SHA256与重组方法；将 `github_live_token` 改为中性字段名并更新manifest哈希/索引。修复完成后也只能在单独授权下运行定向敏感信息preflight，随后提交、推送与CI重跑仍需独立授权。精确路径+SHA豁免属于另一项独立安全决策，本轮未选择、未授权、未实施。
+
+额度：Step 7-P1与R0保持已用；本次CI只读诊断1/1及R1文档持久化1/1已用。修复、定向验证、提交、推送、CI重跑、合并均为0且未授权；未修改归档、manifest、扫描器、workflow或任何产品/测试文件。
+
+## 2026-09-18 Step 7 PR #13 CI失败停止证据
+
+PR [#13](https://github.com/Muggle8888/15-cyber-town/pull/13) 已创建，state=`OPEN`、非Draft、mergeable=`MERGEABLE`、mergeStateStatus=`UNSTABLE`；base=`main@1a4fc2cdf142b00f823bebf9b2abe6e74ba23ab3`，head=`feat/f-009-delivery@8a88c571eeae478f494c4e1ab7ab456fbe049280`。GitHub PR files分页API确认119个文件且无重复；正式交付worktree在P1停止时仍为ahead/behind=`0/0`且工作区干净，功能worktree只保留未暂存的专用 `AGENTS.md`。
+
+唯一初始CI为 [Quality run 35333874674](https://github.com/Muggle8888/15-cyber-town/actions/runs/35333874674)，2026-09-18 10:16:43 UTC创建、10:16:55 UTC完成，event=`pull_request`、status=`completed`、conclusion=`failure`，head仍为 `8a88c571eeae478f494c4e1ab7ab456fbe049280`。job=`quality` 的 `Run unified quality gate` 在 `sensitive-information-preflight` 报告两个扫描finding：`docs/archive/F-009-过程记录-20260905/evidence.md:0: oversized_text_file` 与 `docs/archive/F-009-过程记录-20260905/manifest.json:0: credential_assignment`。本状态对账未读取两个文件的内容；`credential_assignment` 只表示扫描器finding，尚未确认为真实凭据或安全事件。
+
+P1按失败即停止合同在初始CI失败后停止：fetch 1/1、远端与重复PR核验1/1、PR创建1/1、初始CI观察1/1已用；PR元数据修正0/1、状态提交0/1、状态推送0/1、后续HEAD CI观察0/1均未执行，并随P1授权消费而关闭，不得继承。P1没有修改文件、提交、再次推送、重跑CI、启动服务、修改main或合并。R0只校准 `current-task.md`、`progress.md`、`evidence.md` 与 `roadmap.md` 四份正式治理文档，不提交、不推送、不诊断或修复；后续只可另行申请只读CI失败诊断授权。
 
 ## 2026-09-18 Step 7 Git分支交付
 
