@@ -1,5 +1,7 @@
 """Minimal FastAPI application for local backend connectivity."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, status
@@ -7,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from cyber_town.api.dialogue import DialogueApplication, install_dialogue_boundary
 from cyber_town.api.relationships import RelationshipApplication, install_relationship_boundary
+from cyber_town.application.dialogue import DialogueService
 from cyber_town.application.observability import ObservabilityRecorder
 
 HEALTH_PATH = "/api/v1/health"
@@ -29,7 +32,16 @@ def create_app(
 ) -> FastAPI:
     """Build the HTTP application without external service dependencies."""
 
-    application = FastAPI(title="Cyber Town API", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+        del application
+        try:
+            yield
+        finally:
+            if isinstance(dialogue_service, DialogueService):
+                await dialogue_service.aclose()
+
+    application = FastAPI(title="Cyber Town API", version="0.1.0", lifespan=lifespan)
     install_dialogue_boundary(
         application,
         dialogue_service,

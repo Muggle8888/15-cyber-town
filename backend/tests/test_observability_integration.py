@@ -84,13 +84,15 @@ def request(
     message: str = "Synthetic safe message",
     npc_id: str = "neon_guide",
 ) -> DialogueRequestV1:
-    return DialogueRequestV1(
+    value = DialogueRequestV1(
         request_id=REQUEST_ID,
         player_id="synthetic_player",
-        npc_id=npc_id,
+        npc_id="neon_guide",
         conversation_id=CONVERSATION_ID,
         message=message,
     )
+    object.__setattr__(value, "npc_id", npc_id)
+    return value
 
 
 def service(

@@ -167,7 +167,8 @@ def test_exact_match_precedes_alias_and_ranked_ties_are_deterministic(
 
 
 @pytest.mark.parametrize(
-    "other_player,other_npc", [("other_player", "neon_guide"), ("local_player", "other_npc")]
+    "other_player,other_npc",
+    [("other_player", "neon_guide"), ("local_player", "signal_archivist")],
 )
 def test_complete_player_npc_scope_is_enforced_before_recall(
     other_player: str,

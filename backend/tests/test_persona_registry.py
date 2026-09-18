@@ -65,10 +65,11 @@ def test_unknown_npc_id_fails_closed_before_provider_or_memory_use() -> None:
     request = DialogueRequestV1(
         request_id=UUID("11111111-1111-4111-8111-111111111111"),
         player_id="local_player",
-        npc_id="unapproved",
+        npc_id="neon_guide",
         conversation_id=UUID("22222222-2222-4222-8222-222222222222"),
         message="Synthetic question",
     )
+    object.__setattr__(request, "npc_id", "unapproved")
 
     with pytest.raises(DialogueUseCaseError) as raised:
         run(service.execute(request, trace_id=UUID("33333333-3333-4333-8333-333333333333")))

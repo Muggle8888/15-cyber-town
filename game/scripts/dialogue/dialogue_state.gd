@@ -33,14 +33,19 @@ const SUCCESS_FIELDS := [
 ]
 const ERROR_FIELDS := ["trace_id", "code", "message", "retryable"]
 const ERROR_MAPPINGS := {
-	400: ["unsafe_content", false, UNSAFE],
-	404: ["npc_not_found", false, UNAVAILABLE],
-	409: ["conflict", false, UNAVAILABLE],
-	422: ["validation_error", false, VALIDATION],
-	500: ["internal_error", false, UNAVAILABLE],
-	502: ["provider_unavailable", true, INVALID_RESPONSE],
-	503: ["provider_unavailable", true, UNAVAILABLE],
-	504: ["provider_timeout", true, TIMEOUT],
+	"400:unsafe_content": [false, UNSAFE],
+	"404:npc_not_found": [false, UNAVAILABLE],
+	"409:conflict": [false, UNAVAILABLE],
+	"413:payload_too_large": [false, VALIDATION],
+	"422:validation_error": [false, VALIDATION],
+	"429:rate_limited": [true, UNAVAILABLE],
+	"429:budget_exhausted": [false, UNAVAILABLE],
+	"500:internal_error": [false, UNAVAILABLE],
+	"502:provider_invalid_response": [false, INVALID_RESPONSE],
+	"503:provider_unavailable": [true, UNAVAILABLE],
+	"503:circuit_open": [true, UNAVAILABLE],
+	"503:control_unavailable": [true, UNAVAILABLE],
+	"504:provider_timeout": [true, TIMEOUT],
 }
 
 var _uuid_pattern := RegEx.new()
@@ -48,8 +53,8 @@ var _uuid_pattern := RegEx.new()
 
 func _init() -> void:
 	_uuid_pattern.compile(
-		"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-		+ "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+		"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+		+ "[0-9a-f]{4}-[0-9a-f]{12}$"
 	)
 
 
@@ -160,8 +165,7 @@ func _validate_error(
 	response_code: int,
 ) -> Dictionary:
 	if (
-		not ERROR_MAPPINGS.has(response_code)
-		or not _has_exact_fields(payload, response_text, ERROR_FIELDS)
+		not _has_exact_fields(payload, response_text, ERROR_FIELDS)
 		or typeof(payload["trace_id"]) != TYPE_STRING
 		or typeof(payload["code"]) != TYPE_STRING
 		or typeof(payload["message"]) != TYPE_STRING
@@ -169,12 +173,14 @@ func _validate_error(
 	):
 		return _invalid()
 
-	var mapping: Array = ERROR_MAPPINGS[response_code]
+	var mapping_key := "%s:%s" % [response_code, String(payload["code"])]
+	if not ERROR_MAPPINGS.has(mapping_key):
+		return _invalid()
+	var mapping: Array = ERROR_MAPPINGS[mapping_key]
 	var message := String(payload["message"])
 	if (
 		not _is_canonical_uuid(String(payload["trace_id"]))
-		or String(payload["code"]) != String(mapping[0])
-		or bool(payload["retryable"]) != bool(mapping[1])
+		or bool(payload["retryable"]) != bool(mapping[0])
 		or message.is_empty()
 		or message.length() > 500
 		or message != message.strip_edges()
@@ -182,11 +188,11 @@ func _validate_error(
 		return _invalid()
 
 	return {
-		"state": mapping[2],
+		"state": mapping[1],
 		"reply": "",
 		"trace_id": String(payload["trace_id"]),
 		"status": "",
-		"retryable": bool(mapping[1]),
+		"retryable": bool(mapping[0]),
 	}
 
 

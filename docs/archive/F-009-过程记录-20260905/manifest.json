@@ -1,0 +1,125 @@
+{
+  "created_at": "2026-09-05T14:00:11.716162+00:00",
+  "purpose": "F-009 historical process preservation; not current authority",
+  "retention": "manual review after F-009 archive; Codex does not delete",
+  "schema_version": 1,
+  "sensitive_scan": {
+    "findings": {
+      "aws_access_key": [],
+      "openai_live_key": [],
+      "private_key_header": [],
+      "github_live_token_matches": []
+    },
+    "patterns": [
+      "private_key_header",
+      "openai_live_key",
+      "github_live_token",
+      "aws_access_key"
+    ]
+  },
+  "sources": {
+    "current-task.md": {
+      "bytes": 568152,
+      "sha256": "1930571ef4235a5bbb2602ad406a2db4e6d8383043dd04f5be15a9677000379f",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\current-task.md"
+    },
+    "evidence.md": {
+      "bytes": 36275701,
+      "sha256": "3b03fcef07d1784f41d39660935a908874995d8c8eee854bbb1490042ec85f74",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\evidence.md",
+      "packaging": {
+        "entry_path": "evidence.md",
+        "index_path": "evidence.index.json",
+        "parts_directory": "evidence.parts",
+        "part_count": 9,
+        "original_git_blob_bytes": 36115596,
+        "original_git_blob_sha256": "7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979",
+        "reassembled_bytes": 36115596,
+        "reassembled_sha256": "7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979",
+        "content_verified_by_current_gate": false
+      }
+    },
+    "implementation-plan.md": {
+      "bytes": 308819,
+      "sha256": "185375bf3aa32a9b4c6c98638d3edfea8c3dcbfa74ce5e9b014811ef2837a5a8",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\implementation-plan.md"
+    },
+    "progress.md": {
+      "bytes": 301223,
+      "sha256": "eaf6fa8fc2a4ff20a17b33342149578c20aaa40cca154c96a2357ca9ee514e16",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\progress.md"
+    },
+    "roadmap.md": {
+      "bytes": 243038,
+      "sha256": "f55c553aba73e3c99f5b9a91e0dc0b55bb2b916f22162335b79be00faf8c0830",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\roadmap.md"
+    }
+  },
+  "verification": "byte-identical sha256",
+  "packaged_files": [
+    {
+      "path": "evidence.md",
+      "bytes": 674,
+      "sha256": "d1c5b92690e225fca1ea13d7d794a8aacd14eef326b6c2e103e9f01858f551f1"
+    },
+    {
+      "path": "evidence.index.json",
+      "bytes": 2233,
+      "sha256": "4694e31cbe8737784d3e08f50509bbe1ebfb0baba93e79e9d18f5ab2bc575ccc"
+    },
+    {
+      "order": 1,
+      "path": "evidence.parts/part-001.md",
+      "bytes": 4193971,
+      "sha256": "b79046d299b4b6a49aab9cc8c075524f7ede4e6ae1e2a0323e93539b263f346a"
+    },
+    {
+      "order": 2,
+      "path": "evidence.parts/part-002.md",
+      "bytes": 4194121,
+      "sha256": "da3d6a648ae0ebd3a529e251dce057403dde265036bfea749a21f0eb6b52ae6d"
+    },
+    {
+      "order": 3,
+      "path": "evidence.parts/part-003.md",
+      "bytes": 4194161,
+      "sha256": "c779dca5053b0cb21f97da0d3a46a7e3f36a47213023bdad3295b51067323ac2"
+    },
+    {
+      "order": 4,
+      "path": "evidence.parts/part-004.md",
+      "bytes": 4193993,
+      "sha256": "249b9548023b0f173206f3fb51e818ec5c4252440221dbf5b752ad045b65cc20"
+    },
+    {
+      "order": 5,
+      "path": "evidence.parts/part-005.md",
+      "bytes": 4194085,
+      "sha256": "4d91c57b823080db14c7d4db0acb9ba5f95d66d833ade96d238145989c0c154e"
+    },
+    {
+      "order": 6,
+      "path": "evidence.parts/part-006.md",
+      "bytes": 4194067,
+      "sha256": "2036c40f758168a16b0fb57ba9366931211a7c15346017d3f372d7be236652c3"
+    },
+    {
+      "order": 7,
+      "path": "evidence.parts/part-007.md",
+      "bytes": 4194161,
+      "sha256": "34703cab80cffacbdd56e316264b90627ac52400e210247bea8f246a207c0fec"
+    },
+    {
+      "order": 8,
+      "path": "evidence.parts/part-008.md",
+      "bytes": 4194243,
+      "sha256": "72f4605584024ac69d13278efe0c6887ef78c837a01c81e354bd07a576cc9e2e"
+    },
+    {
+      "order": 9,
+      "path": "evidence.parts/part-009.md",
+      "bytes": 2562794,
+      "sha256": "8ee9d6485ecd32bcf1b8b4fd82a55567a9a81b15f1949c6a0891066d44693515"
+    }
+  ]
+}

@@ -1,7 +1,13 @@
 # 当前实施计划
 
-状态：`no_active_task / awaiting_roadmap_selection`。
+更新时间：2026-09-18
 
-F-008《可观测性与 Agent 评估》已完成交付并归档：[`任务卡`](../archive/task-cards/F-008-observability-agent-evaluation.md)；[`实施计划`](../archive/task-cards/F-008-implementation-plan.md)。
+## 当前：无活动任务
 
-当前未选择下一任务。起草新的候选任务卡、进入 Step 0 或实施任何 roadmap 项均须取得用户单独授权。
+F-009实现、Step 6验收、Step 7交付修复及PR #13首轮绿色Quality CI均已完成。完整实施历史已保存在：
+
+- [F-009任务卡](../archive/task-cards/F-009-safety-cost-performance.md)
+- [F-009实施计划](../archive/task-cards/F-009-implementation-plan.md)
+- [F-009过程记录入口](../archive/F-009-过程记录-20260905/evidence.md)
+
+当前只允许完成同一PR的归档CI、合并与只读远端核对；不得从F-009授权推导新任务、部署、发布、tag、资源删除或新的quality/性能运行。PR #13合并后，由用户另行选择下一张任务卡。

@@ -14,6 +14,7 @@ from pathlib import Path
 from threading import Lock
 from uuid import UUID
 
+from cyber_town.application.budget import SafetyCostMetadata, SafetyCostRecorder
 from cyber_town.application.observability import (
     OBSERVABILITY_SCHEMA_VERSION,
     AttemptKind,
@@ -29,8 +30,24 @@ from cyber_town.application.observability import (
     TraceStageMetadata,
 )
 from cyber_town.application.observability_evaluation import EvaluationReport
+from cyber_town.application.retry import RetryBreakerMetadata, RetryBreakerRecorder
+from cyber_town.infrastructure.observability.storage_codec import (
+    ENCODED_FIELDS,
+    WORD_CODES,
+    decode_value,
+    encode_value,
+)
+from cyber_town.infrastructure.persistence.sqlite_connection import (
+    BoundedSqliteWriter,
+    validate_sqlite_path,
+)
 
-OBSERVABILITY_MIGRATIONS = ((1, "0001_observability.sql"),)
+OBSERVABILITY_MIGRATIONS = (
+    (1, "0001_observability.sql"),
+    (2, "0002_safety_cost_performance.sql"),
+    (3, "0003_retry_circuit_breaker.sql"),
+    (4, "0004_compact_event_storage.sql"),
+)
 _BUSY_TIMEOUT_MILLISECONDS = 500
 _TRACE_RETENTION_AGE = timedelta(days=7)
 _TRACE_RETENTION_COUNT = 10_000
@@ -39,6 +56,20 @@ _EVALUATION_RETENTION_COUNT = 50
 _TAG_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _VERSION_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9.-]*[a-z0-9])?$")
 _CASE_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?$")
+_V1_TRACE_ERROR_CODES = frozenset(
+    {
+        "none",
+        "validation_error",
+        "npc_not_found",
+        "conflict",
+        "provider_timeout",
+        "provider_unavailable",
+        "provider_invalid_response",
+        "unsafe_content",
+        "internal_error",
+        "observability_unavailable",
+    }
+)
 _REQUIRED_TABLES = frozenset(
     {
         "schema_migrations",
@@ -48,6 +79,8 @@ _REQUIRED_TABLES = frozenset(
         "evaluation_runs",
         "evaluation_cases",
         "replay_index",
+        "safety_cost_events",
+        "retry_breaker_events",
     }
 )
 
@@ -58,6 +91,26 @@ class ObservabilityStorageError(RuntimeError):
 
 class ObservabilityConflictError(ObservabilityStorageError):
     """A unique trace, execution owner, evaluation, or replay already exists."""
+
+
+def _compact_storage(connection: sqlite3.Connection) -> bool:
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    if version not in (1, 2, 3, 4):
+        raise ObservabilityStorageError("Observability schema version is unavailable")
+    return bool(version == 4)
+
+
+def _storage_values(
+    connection: sqlite3.Connection, table: str, columns: str, values: tuple[object, ...]
+) -> tuple[object, ...]:
+    if not _compact_storage(connection):
+        return values
+    return tuple(
+        encode_value(table, column.strip(), value)
+        if (table, column.strip()) in ENCODED_FIELDS
+        else value
+        for column, value in zip(columns.split(","), values, strict=True)
+    )
 
 
 class ReplayMode(StrEnum):
@@ -100,6 +153,12 @@ def _require_digest(value: object) -> str:
     if not isinstance(value, str) or _TAG_PATTERN.fullmatch(value) is None:
         raise ValueError("Observability digest is invalid")
     return value
+
+
+def _v1_compatible_error_code(value: TraceErrorCode) -> str:
+    if value.value in _V1_TRACE_ERROR_CODES:
+        return value.value
+    return TraceErrorCode.INTERNAL_ERROR.value
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,7 +319,11 @@ class ObservabilityQuery:
             raise ValueError("Observability query limit is invalid")
 
 
-class SqliteObservabilityRepository(DurableObservabilityRecorder):
+class SqliteObservabilityRepository(
+    DurableObservabilityRecorder,
+    SafetyCostRecorder,
+    RetryBreakerRecorder,
+):
     """Persist strict records and expose only allowlisted read-only summaries."""
 
     TRACE_QUERY_FIELDS = frozenset(
@@ -351,22 +414,30 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
         self._busy_timeout_milliseconds = _BUSY_TIMEOUT_MILLISECONDS
         self._pending_lock = Lock()
         self._pending_stages: dict[UUID, list[TraceStageMetadata]] = {}
+        self._writer = BoundedSqliteWriter(resolved_database, allowed_root=resolved_root)
 
     def __repr__(self) -> str:
         return "SqliteObservabilityRepository()"
 
     def initialize(self) -> None:
-        migration_path = Path(__file__).parent / "migrations" / OBSERVABILITY_MIGRATIONS[0][1]
-        try:
-            migration_bytes = migration_path.read_bytes()
-            migration = migration_bytes.decode("utf-8")
-        except (OSError, UnicodeDecodeError) as error:
-            raise ObservabilityStorageError(
-                "Observability schema migration is unavailable"
-            ) from error
-        checksum = hashlib.sha256(migration_bytes).hexdigest()
+        migrations: list[tuple[int, str, str, str]] = []
+        for version, name in OBSERVABILITY_MIGRATIONS:
+            migration_path = Path(__file__).parent / "migrations" / name
+            try:
+                migration_bytes = migration_path.read_bytes()
+                migration = migration_bytes.decode("utf-8")
+            except (OSError, UnicodeDecodeError) as error:
+                raise ObservabilityStorageError(
+                    "Observability schema migration is unavailable"
+                ) from error
+            migrations.append(
+                (version, name, hashlib.sha256(migration_bytes).hexdigest(), migration)
+            )
         try:
             with closing(self._connect()) as connection:
+                connection.create_function(
+                    "observability_encode_v1", 3, encode_value, deterministic=True
+                )
                 if connection.execute("PRAGMA quick_check").fetchone() != ("ok",):
                     raise ObservabilityStorageError("Observability storage is unavailable")
                 existing_tables = {
@@ -391,25 +462,27 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                     existing = connection.execute(
                         "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
                     ).fetchall()
-                    expected = [(1, OBSERVABILITY_MIGRATIONS[0][1], checksum)]
+                    expected = [item[:3] for item in migrations]
                     if existing != expected[: len(existing)]:
                         raise ObservabilityStorageError(
                             "Observability schema version is unavailable"
                         )
-                    if not existing:
+                    for version, name, checksum, migration in migrations[len(existing) :]:
                         for statement in self._migration_statements(migration):
                             connection.execute(statement)
                         connection.execute(
                             "INSERT INTO schema_migrations "
                             "(version, name, checksum, applied_at_ms) VALUES (?, ?, ?, ?)",
                             (
-                                1,
-                                OBSERVABILITY_MIGRATIONS[0][1],
+                                version,
+                                name,
                                 checksum,
                                 _epoch_milliseconds(datetime.now(UTC)),
                             ),
                         )
-                    if connection.execute("PRAGMA user_version").fetchone() != (1,):
+                    if connection.execute("PRAGMA user_version").fetchone() != (
+                        OBSERVABILITY_MIGRATIONS[-1][0],
+                    ):
                         raise ObservabilityStorageError(
                             "Observability schema version is unavailable"
                         )
@@ -456,6 +529,133 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                 for trace_id in sorted(self._pending_stages, key=str)
                 for stage in self._pending_stages[trace_id]
             )
+
+    def record_safety_cost(self, record: SafetyCostMetadata) -> None:
+        if not isinstance(record, SafetyCostMetadata):
+            raise TypeError("Safety-cost record type is invalid")
+        values: tuple[object, ...] = (
+            str(record.trace_id),
+            str(record.execution_id),
+            record.attempt_number,
+            record.event_kind.value,
+            record.policy_version,
+            record.pricing_version,
+            record.provider_kind.value,
+            record.outcome.value,
+            record.scope_tags.player_scope_tag,
+            record.scope_tags.npc_scope_tag,
+            record.scope_tags.player_npc_scope_tag,
+            record.reserved_micro_usd,
+            record.actual_cost_micro_usd,
+            record.prompt_tokens,
+            record.completion_tokens,
+            int(record.conservative),
+            _epoch_milliseconds(record.recorded_at_utc),
+        )
+        try:
+            with closing(self._connect()) as connection:
+                values = _storage_values(
+                    connection,
+                    "safety_cost_events",
+                    "trace_id,execution_id,attempt_number,event_kind,policy_version,pricing_version,"
+                    "provider_kind,outcome,player_scope_tag,npc_scope_tag,player_npc_scope_tag,"
+                    "reserved_micro_usd,actual_cost_micro_usd,prompt_tokens,completion_tokens,"
+                    "conservative,recorded_at_ms",
+                    values,
+                )
+                connection.execute("BEGIN IMMEDIATE")
+                try:
+                    connection.execute(
+                        "INSERT OR IGNORE INTO safety_cost_events ("
+                        "trace_id, execution_id, attempt_number, event_kind, policy_version, "
+                        "pricing_version, provider_kind, outcome, player_scope_tag, "
+                        "npc_scope_tag, player_npc_scope_tag, reserved_micro_usd, "
+                        "actual_cost_micro_usd, prompt_tokens, completion_tokens, "
+                        "conservative, recorded_at_ms) VALUES ("
+                        "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        values,
+                    )
+                    existing = connection.execute(
+                        "SELECT trace_id, execution_id, attempt_number, event_kind, "
+                        "policy_version, pricing_version, provider_kind, outcome, "
+                        "player_scope_tag, npc_scope_tag, player_npc_scope_tag, "
+                        "reserved_micro_usd, actual_cost_micro_usd, prompt_tokens, "
+                        "completion_tokens, conservative, recorded_at_ms "
+                        "FROM safety_cost_events WHERE trace_id = ? AND attempt_number = ? "
+                        "AND event_kind = ?",
+                        (str(record.trace_id), record.attempt_number, values[3]),
+                    ).fetchone()
+                    if existing != values:
+                        raise ObservabilityConflictError(
+                            "Observability safety-cost record already exists"
+                        )
+                    connection.commit()
+                except (sqlite3.Error, ObservabilityConflictError):
+                    connection.rollback()
+                    raise
+        except ObservabilityConflictError:
+            raise
+        except sqlite3.Error as error:
+            raise ObservabilityStorageError("Observability storage is unavailable") from error
+
+    def record_retry_breaker(self, record: RetryBreakerMetadata) -> None:
+        if not isinstance(record, RetryBreakerMetadata):
+            raise TypeError("Retry-breaker record type is invalid")
+        values: tuple[object, ...] = (
+            str(record.trace_id),
+            str(record.execution_id),
+            record.attempt_number,
+            record.event_kind.value,
+            record.policy_version,
+            record.retry_outcome.value,
+            record.breaker_state.value,
+            record.breaker_outcome.value,
+            None if record.failure_reason is None else record.failure_reason.value,
+            record.backoff_ms,
+            record.jitter_ms,
+            record.deadline_remaining_ms,
+            _epoch_milliseconds(record.recorded_at_utc),
+        )
+        try:
+            with closing(self._connect()) as connection:
+                values = _storage_values(
+                    connection,
+                    "retry_breaker_events",
+                    "trace_id,execution_id,attempt_number,event_kind,policy_version,retry_outcome,"
+                    "breaker_state,breaker_outcome,failure_reason,backoff_ms,jitter_ms,"
+                    "deadline_remaining_ms,recorded_at_ms",
+                    values,
+                )
+                connection.execute("BEGIN IMMEDIATE")
+                try:
+                    connection.execute(
+                        "INSERT OR IGNORE INTO retry_breaker_events ("
+                        "trace_id, execution_id, attempt_number, event_kind, policy_version, "
+                        "retry_outcome, breaker_state, breaker_outcome, failure_reason, "
+                        "backoff_ms, jitter_ms, deadline_remaining_ms, recorded_at_ms) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        values,
+                    )
+                    existing = connection.execute(
+                        "SELECT trace_id, execution_id, attempt_number, event_kind, "
+                        "policy_version, retry_outcome, breaker_state, breaker_outcome, "
+                        "failure_reason, backoff_ms, jitter_ms, deadline_remaining_ms, "
+                        "recorded_at_ms FROM retry_breaker_events WHERE trace_id = ? "
+                        "AND attempt_number = ? AND event_kind = ?",
+                        (str(record.trace_id), record.attempt_number, values[3]),
+                    ).fetchone()
+                    if existing != values:
+                        raise ObservabilityConflictError(
+                            "Observability retry-breaker record already exists"
+                        )
+                    connection.commit()
+                except (sqlite3.Error, ObservabilityConflictError):
+                    connection.rollback()
+                    raise
+        except ObservabilityConflictError:
+            raise
+        except sqlite3.Error as error:
+            raise ObservabilityStorageError("Observability storage is unavailable") from error
 
     def start_trace(self, trace: TraceMetadata) -> None:
         if not isinstance(trace, TraceMetadata) or trace.record_status is not RecordStatus.OPEN:
@@ -588,7 +788,7 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                 trace.provider_kind.value,
                 trace.record_status.value,
                 None if trace.terminal_outcome is None else trace.terminal_outcome.value,
-                trace.error_code.value,
+                _v1_compatible_error_code(trace.error_code),
                 trace.reason_code.value,
                 trace.idempotency_outcome.value,
                 trace.short_term_outcome.value,
@@ -644,7 +844,7 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                 trace.provider_kind.value,
                 trace.record_status.value,
                 None if trace.terminal_outcome is None else trace.terminal_outcome.value,
-                trace.error_code.value,
+                _v1_compatible_error_code(trace.error_code),
                 trace.reason_code.value,
                 trace.idempotency_outcome.value,
                 trace.short_term_outcome.value,
@@ -703,27 +903,34 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
             "error_code = excluded.error_code, started_at_ms = excluded.started_at_ms, "
             "finished_at_ms = excluded.finished_at_ms, latency_ms = excluded.latency_ms, "
             "item_count = excluded.item_count",
-            (
-                str(stage.trace_id),
-                stage.sequence,
-                stage.schema_version,
-                stage.stage.value,
-                stage.outcome.value,
-                stage.reason_code.value,
-                stage.error_code.value,
-                _epoch_milliseconds(stage.started_at_utc),
-                None
-                if stage.finished_at_utc is None
-                else _epoch_milliseconds(stage.finished_at_utc),
-                stage.latency_ms,
-                stage.item_count,
+            _storage_values(
+                connection,
+                "trace_stage_events",
+                "trace_id,sequence,schema_version,stage,outcome,reason_code,error_code,"
+                "started_at_ms,finished_at_ms,latency_ms,item_count",
+                (
+                    str(stage.trace_id),
+                    stage.sequence,
+                    stage.schema_version,
+                    stage.stage.value,
+                    stage.outcome.value,
+                    stage.reason_code.value,
+                    _v1_compatible_error_code(stage.error_code),
+                    _epoch_milliseconds(stage.started_at_utc),
+                    None
+                    if stage.finished_at_utc is None
+                    else _epoch_milliseconds(stage.finished_at_utc),
+                    stage.latency_ms,
+                    stage.item_count,
+                ),
             ),
         )
 
     @staticmethod
     def _validate_persisted_stages(connection: sqlite3.Connection, trace_id: UUID) -> None:
+        compact = _compact_storage(connection)
         actual = tuple(
-            str(row[0])
+            decode_value("trace_stage_events", "stage", row[0]) if compact else str(row[0])
             for row in connection.execute(
                 "SELECT stage FROM trace_stage_events WHERE trace_id = ? ORDER BY sequence",
                 (str(trace_id),),
@@ -753,7 +960,12 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
             "FROM execution_links WHERE trace_id = ?",
             (str(trace.trace_id),),
         ).fetchone()
-        expected = (str(trace.execution_id), link_kind, trace.provider_dispatch_count)
+        expected = _storage_values(
+            connection,
+            "execution_links",
+            "execution_id,link_kind,provider_dispatch_count",
+            (str(trace.execution_id), link_kind, trace.provider_dispatch_count),
+        )
         if existing is None:
             connection.execute(
                 "INSERT INTO execution_links "
@@ -894,16 +1106,22 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                                     "started_at_ms = excluded.started_at_ms, "
                                     "finished_at_ms = excluded.finished_at_ms, latency_ms = 0, "
                                     "item_count = 0",
-                                    (
-                                        str(trace_id),
-                                        sequence,
-                                        OBSERVABILITY_SCHEMA_VERSION,
-                                        stage.value,
-                                        StageOutcome.FAILED.value,
-                                        TraceReasonCode.RESTART_RECOVERY.value,
-                                        TraceErrorCode.INTERNAL_ERROR.value,
-                                        finished_ms,
-                                        finished_ms,
+                                    _storage_values(
+                                        connection,
+                                        "trace_stage_events",
+                                        "trace_id,sequence,schema_version,stage,outcome,reason_code,"
+                                        "error_code,started_at_ms,finished_at_ms",
+                                        (
+                                            str(trace_id),
+                                            sequence,
+                                            OBSERVABILITY_SCHEMA_VERSION,
+                                            stage.value,
+                                            StageOutcome.FAILED.value,
+                                            TraceReasonCode.RESTART_RECOVERY.value,
+                                            TraceErrorCode.INTERNAL_ERROR.value,
+                                            finished_ms,
+                                            finished_ms,
+                                        ),
                                     ),
                                 )
                             else:
@@ -914,16 +1132,22 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                                     "latency_ms, item_count) VALUES "
                                     "(?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0) "
                                     "ON CONFLICT(trace_id, sequence) DO NOTHING",
-                                    (
-                                        str(trace_id),
-                                        sequence,
-                                        OBSERVABILITY_SCHEMA_VERSION,
-                                        stage.value,
-                                        StageOutcome.NOT_REACHED.value,
-                                        TraceReasonCode.NOT_REACHED.value,
-                                        TraceErrorCode.NONE.value,
-                                        finished_ms,
-                                        finished_ms,
+                                    _storage_values(
+                                        connection,
+                                        "trace_stage_events",
+                                        "trace_id,sequence,schema_version,stage,outcome,reason_code,"
+                                        "error_code,started_at_ms,finished_at_ms",
+                                        (
+                                            str(trace_id),
+                                            sequence,
+                                            OBSERVABILITY_SCHEMA_VERSION,
+                                            stage.value,
+                                            StageOutcome.NOT_REACHED.value,
+                                            TraceReasonCode.NOT_REACHED.value,
+                                            TraceErrorCode.NONE.value,
+                                            finished_ms,
+                                            finished_ms,
+                                        ),
                                     ),
                                 )
                         updated = connection.execute(
@@ -954,7 +1178,12 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                                     else "local_execution"
                                 )
                             )
-                            expected = (str(execution_id), link_kind, int(dispatch_count))
+                            expected = _storage_values(
+                                connection,
+                                "execution_links",
+                                "execution_id,link_kind,provider_dispatch_count",
+                                (str(execution_id), link_kind, int(dispatch_count)),
+                            )
                             existing = connection.execute(
                                 "SELECT execution_id, link_kind, provider_dispatch_count "
                                 "FROM execution_links WHERE trace_id = ?",
@@ -990,6 +1219,9 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
         evaluation_cutoff = _epoch_milliseconds(now_utc - _EVALUATION_RETENTION_AGE)
         try:
             with closing(self._connect()) as connection:
+                compact = _compact_storage(connection)
+                active = WORD_CODES["active"] if compact else "active"
+                expired = WORD_CODES["expired"] if compact else "expired"
                 connection.execute("BEGIN IMMEDIATE")
                 try:
                     trace_count = connection.execute(
@@ -1001,14 +1233,16 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                         (now_ms, trace_cutoff, _TRACE_RETENTION_COUNT),
                     ).rowcount
                     stage_count = connection.execute(
-                        "UPDATE trace_stage_events SET retention_status = 'expired' "
-                        "WHERE retention_status = 'active' AND trace_id IN ("
-                        "SELECT trace_id FROM trace_runs WHERE retention_status = 'expired')"
+                        "UPDATE trace_stage_events SET retention_status = ? "
+                        "WHERE retention_status = ? AND trace_id IN ("
+                        "SELECT trace_id FROM trace_runs WHERE retention_status = 'expired')",
+                        (expired, active),
                     ).rowcount
                     execution_count = connection.execute(
-                        "UPDATE execution_links SET retention_status = 'expired' "
-                        "WHERE retention_status = 'active' AND trace_id IN ("
-                        "SELECT trace_id FROM trace_runs WHERE retention_status = 'expired')"
+                        "UPDATE execution_links SET retention_status = ? "
+                        "WHERE retention_status = ? AND trace_id IN ("
+                        "SELECT trace_id FROM trace_runs WHERE retention_status = 'expired')",
+                        (expired, active),
                     ).rowcount
                     replay_count = connection.execute(
                         "UPDATE replay_index SET retention_status = 'expired', "
@@ -1237,32 +1471,18 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
             raise ValueError("Observability query limit is invalid")
 
     def _validate_current_path(self) -> None:
-        resolved_database = self.database_path.resolve(strict=False)
-        if not resolved_database.is_relative_to(self._allowed_root):
-            raise ObservabilityStorageError("Observability storage is unavailable")
-        for current in (self.database_path, *self.database_path.parents):
-            if current.is_symlink() or current.is_junction():
-                raise ObservabilityStorageError("Observability storage is unavailable")
-            if current.resolve(strict=False) == self._allowed_root:
-                break
+        try:
+            validate_sqlite_path(self.database_path, self._allowed_root)
+        except sqlite3.Error:
+            raise ObservabilityStorageError("Observability storage is unavailable") from None
 
     def _connect(self) -> sqlite3.Connection:
-        self._validate_current_path()
-        connection: sqlite3.Connection | None = None
-        try:
-            connection = sqlite3.connect(
-                self.database_path,
-                timeout=self._busy_timeout_milliseconds / 1_000,
-                isolation_level=None,
-            )
-            connection.execute("PRAGMA foreign_keys = ON")
-            connection.execute("PRAGMA journal_mode = WAL")
-            connection.execute(f"PRAGMA busy_timeout = {self._busy_timeout_milliseconds:d}")
-            return connection
-        except sqlite3.Error:
-            if connection is not None:
-                connection.close()
-            raise
+        # Writer validates inside its lease lock, including after any queue wait.
+        return self._writer.borrow(timeout_ms=self._busy_timeout_milliseconds)
+
+    def close(self) -> None:
+        """Release the owned writer after all callers have finished."""
+        self._writer.close()
 
     def _connect_read_only(self) -> sqlite3.Connection:
         self._validate_current_path()
@@ -1284,12 +1504,14 @@ class SqliteObservabilityRepository(DurableObservabilityRecorder):
                 "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
             ).fetchall()
             if (
-                len(migration) != 1
-                or migration[0][0] != 1
-                or migration[0][1] != "0001_observability.sql"
-                or not isinstance(migration[0][2], str)
-                or _TAG_PATTERN.fullmatch(migration[0][2]) is None
-                or connection.execute("PRAGMA user_version").fetchone()[0] != 1
+                len(migration) != len(OBSERVABILITY_MIGRATIONS)
+                or tuple((row[0], row[1]) for row in migration) != OBSERVABILITY_MIGRATIONS
+                or any(
+                    not isinstance(row[2], str) or _TAG_PATTERN.fullmatch(row[2]) is None
+                    for row in migration
+                )
+                or connection.execute("PRAGMA user_version").fetchone()[0]
+                != OBSERVABILITY_MIGRATIONS[-1][0]
                 or connection.execute("PRAGMA quick_check").fetchone()[0] != "ok"
             ):
                 raise ObservabilityStorageError("Observability schema version is unavailable")

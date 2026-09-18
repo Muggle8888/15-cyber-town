@@ -184,7 +184,11 @@ def test_durable_recorder_finalizes_all_stages_and_restart_is_idempotent(
         stages = connection.execute(
             "SELECT stage FROM trace_stage_events ORDER BY sequence"
         ).fetchall()
-    assert tuple(stage for (stage,) in stages) == tuple(stage.value for stage in TraceStage)
+    from cyber_town.infrastructure.observability.storage_codec import decode_value
+
+    assert tuple(
+        decode_value("trace_stage_events", "stage", stage) for (stage,) in stages
+    ) == tuple(stage.value for stage in TraceStage)
     assert repository.recover_open_traces(now_utc=datetime(2026, 8, 26, 9, 0, tzinfo=UTC)) == 0
 
 

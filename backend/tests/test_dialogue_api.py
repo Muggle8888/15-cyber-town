@@ -196,10 +196,10 @@ class RaisingDialogueService:
         ),
         (
             DialogueFailureKind.PROVIDER_INVALID_RESPONSE,
-            ApiErrorCode.PROVIDER_UNAVAILABLE,
+            ApiErrorCode.PROVIDER_INVALID_RESPONSE,
             502,
             "The dialogue provider returned an invalid response.",
-            True,
+            False,
         ),
         (
             DialogueFailureKind.PROVIDER_UNAVAILABLE,

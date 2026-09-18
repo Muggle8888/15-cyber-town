@@ -36,9 +36,7 @@ HOST = "127.0.0.1"
 PORT = 8000
 DIALOGUE_PATH = "/api/v1/dialogue"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-TWO_LINE_VIEWPORT_REPLY = (
-    "Nia begins a fresh conversation with her retained relationship snapshot."
-)
+TWO_LINE_VIEWPORT_REPLY = "Nia begins a fresh conversation with her retained relationship snapshot."
 
 
 def _port_is_open() -> bool:
@@ -284,7 +282,7 @@ def run(godot: Path) -> None:
             [ProviderTimeoutError("synthetic provider timeout"), _completion()],
             2,
         ),
-        ("invalid_recovery", [_completion(None), _completion()], 2),
+        ("provider_invalid_response", [_completion(None)], 1),
     )
     for scenario, outcomes, expected_calls in (*scenarios, *MEMORY_SCENARIOS):
         with _fake_application(outcomes) as (application, provider):

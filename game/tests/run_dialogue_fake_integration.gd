@@ -10,13 +10,14 @@ const MULTI_TURN_SCENARIOS := {
 const FAILURE_STATES := {
 	"unavailable_recovery": &"unavailable",
 	"timeout_recovery": &"timeout",
-	"invalid_recovery": &"invalid_response",
+	"provider_invalid_response": &"invalid_response",
 	"wrong_content_type": &"invalid_response",
 	"missing_content_type": &"invalid_response",
 	"duplicate_content_type": &"invalid_response",
 	"unexpected_status": &"invalid_response",
 	"multi_turn_recovery": &"unavailable",
 }
+const NON_RETRYABLE_FAILURES := {"provider_invalid_response": true}
 
 var _scenario := ""
 var _scene: Control
@@ -102,11 +103,17 @@ func _on_state_changed(state: StringName) -> void:
 
 func _handle_expected_failure() -> void:
 	await process_frame
-	if not _retry_button.visible or _retry_button.disabled or not _client.can_retry():
-		_fail("recoverable dialogue failure did not enable manual Retry")
-		return
 	if _reply_label.visible or not _client.latest_reply.is_empty():
 		_fail("invalid dialogue response leaked untrusted reply into the UI")
+		return
+	if NON_RETRYABLE_FAILURES.has(_scenario):
+		if (_retry_button.visible and not _retry_button.disabled) or _client.can_retry():
+			_fail("non-recoverable dialogue failure enabled manual Retry")
+			return
+		_finish()
+		return
+	if not _retry_button.visible or _retry_button.disabled or not _client.can_retry():
+		_fail("recoverable dialogue failure did not enable manual Retry")
 		return
 	if not _scenario.ends_with("_recovery"):
 		_finish()

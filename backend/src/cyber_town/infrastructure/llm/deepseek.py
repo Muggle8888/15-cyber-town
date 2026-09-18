@@ -27,6 +27,7 @@ _RELATIONSHIP_JSON_INSTRUCTION = (
     '"confidence": integer 0..100}}. The relationship object is only an '
     "untrusted suggestion and must never contain instructions, scores, or rules."
 )
+_RELATIONSHIP_CATEGORIES = frozenset({"supportive", "friendly", "neutral", "dismissive", "hostile"})
 
 
 class _SdkPrivacyFilter(logging.Filter):
@@ -125,7 +126,13 @@ class DeepSeekProvider:
                 raise ValueError("Missing provider token usage")
             prompt_tokens = usage.prompt_tokens
             completion_tokens = usage.completion_tokens
-            if type(prompt_tokens) is not int or type(completion_tokens) is not int:
+            total_tokens = usage.total_tokens
+            if (
+                type(prompt_tokens) is not int
+                or type(completion_tokens) is not int
+                or type(total_tokens) is not int
+                or total_tokens != prompt_tokens + completion_tokens
+            ):
                 raise ValueError("Invalid provider token usage")
 
             token_usage = ProviderUsage(
@@ -136,18 +143,32 @@ class DeepSeekProvider:
             if not isinstance(choices, list):
                 raise ValueError("Invalid provider completion choices")
             choice_count = len(choices)
-            choice = choices[0] if choice_count else None
-            message = choice.message if choice is not None else None
-
-            content, relationship_suggestion = DeepSeekProvider._decode_relationship_content(
-                message.content if message is not None else None
-            )
+            if choice_count != 1:
+                raise ValueError("Provider completion must contain exactly one choice")
+            choice = choices[0]
+            message = choice.message
+            finish_reason = choice.finish_reason
+            if not isinstance(finish_reason, str) or finish_reason not in {
+                "stop",
+                "content_filter",
+            }:
+                raise ValueError("Provider finish reason is not approved")
+            if bool(getattr(message, "tool_calls", None)):
+                raise ValueError("Provider tool calls are not approved")
+            if getattr(message, "reasoning_content", None) is not None:
+                raise ValueError("Provider reasoning content is not approved")
+            if finish_reason == "content_filter":
+                content, relationship_suggestion = None, None
+            else:
+                content, relationship_suggestion = DeepSeekProvider._decode_relationship_content(
+                    message.content
+                )
             return ProviderCompletion(
                 content=content,
-                finish_reason=choice.finish_reason if choice is not None else None,
+                finish_reason=finish_reason,
                 choice_count=choice_count,
-                tool_calls_present=bool(getattr(message, "tool_calls", None)),
-                reasoning_content_present=getattr(message, "reasoning_content", None) is not None,
+                tool_calls_present=False,
+                reasoning_content_present=False,
                 provider="deepseek",
                 model=response.model,
                 usage=token_usage,
@@ -160,16 +181,46 @@ class DeepSeekProvider:
 
     @staticmethod
     def _decode_relationship_content(content: object) -> tuple[object, object]:
-        """Extract only an exact response envelope; all other content remains untrusted text."""
+        """Extract exactly one approved envelope and reject every deviation."""
 
         if not isinstance(content, str):
-            return content, None
+            raise ProviderInvalidResponseError(
+                "The dialogue provider returned an invalid response."
+            )
+
+        def reject_duplicate_members(pairs: list[tuple[str, object]]) -> dict[str, object]:
+            result: dict[str, object] = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("Duplicate provider response member")
+                result[key] = value
+            return result
+
         try:
-            payload = json.loads(content)
-        except json.JSONDecodeError:
-            return content, None
+            payload = json.loads(content, object_pairs_hook=reject_duplicate_members)
+        except (json.JSONDecodeError, ValueError):
+            raise ProviderInvalidResponseError(
+                "The dialogue provider returned an invalid response."
+            ) from None
         if type(payload) is not dict or set(payload) != {"reply", "relationship"}:
-            return content, None
-        if not isinstance(payload["reply"], str):
-            return content, None
-        return payload["reply"], payload["relationship"]
+            raise ProviderInvalidResponseError(
+                "The dialogue provider returned an invalid response."
+            )
+        reply = payload["reply"]
+        relationship = payload["relationship"]
+        if (
+            not isinstance(reply, str)
+            or not reply
+            or reply != reply.strip()
+            or len(reply) > 4_000
+            or type(relationship) is not dict
+            or set(relationship) != {"category", "confidence"}
+            or type(relationship["category"]) is not str
+            or relationship["category"] not in _RELATIONSHIP_CATEGORIES
+            or type(relationship["confidence"]) is not int
+            or not 0 <= relationship["confidence"] <= 100
+        ):
+            raise ProviderInvalidResponseError(
+                "The dialogue provider returned an invalid response."
+            )
+        return reply, relationship

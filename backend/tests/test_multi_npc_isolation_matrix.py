@@ -10,6 +10,7 @@ import pytest
 from pydantic import SecretStr
 
 from cyber_town.api.composition import build_dialogue_service
+from cyber_town.application.control import NoOpSafetyControl
 from cyber_town.application.dialogue import (
     DialogueExecutionConfig,
     DialogueFailureKind,
@@ -151,6 +152,7 @@ def composed_service(
         provider=provider,
         long_term_repository=memory,
         relationship_repository=relationship,
+        safety_control=NoOpSafetyControl(),
     )
     assert service is not None
     return service, memory, relationship

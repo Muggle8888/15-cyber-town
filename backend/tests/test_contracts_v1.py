@@ -28,7 +28,7 @@ def valid_request_payload() -> dict[str, Any]:
     return {
         "request_id": REQUEST_ID,
         "player_id": "player-1",
-        "npc_id": "npc-1",
+        "npc_id": "neon_guide",
         "conversation_id": CONVERSATION_ID,
         "message": "你好",
     }
@@ -46,27 +46,37 @@ def valid_response_payload() -> dict[str, Any]:
     }
 
 
-def test_valid_dialogue_request_is_trimmed_and_typed() -> None:
-    payload = valid_request_payload()
-    payload["message"] = " 你好 "
-
-    request = DialogueRequestV1.model_validate_json(json.dumps(payload))
+def test_valid_dialogue_request_is_not_normalized_and_is_typed() -> None:
+    request = DialogueRequestV1.model_validate_json(json.dumps(valid_request_payload()))
 
     assert request.message == "你好"
     assert str(request.request_id) == REQUEST_ID
     assert str(request.conversation_id) == CONVERSATION_ID
 
 
+def test_dialogue_message_accepts_the_exact_utf8_scalar_budget() -> None:
+    payload = valid_request_payload()
+    payload["message"] = "😀" * 1_000
+
+    request = DialogueRequestV1.model_validate_json(json.dumps(payload, ensure_ascii=False))
+
+    assert len(request.message) == 1_000
+    assert len(request.message.encode("utf-8")) == 4_000
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
         ("message", "   "),
+        ("message", " 你好 "),
         ("message", " " + ("x" * 1_000) + " "),
         ("message", "x" * 1_001),
         ("player_id", ""),
         ("player_id", "p" * 65),
         ("npc_id", ""),
         ("npc_id", "n" * 65),
+        ("npc_id", "npc-1"),
+        ("npc_id", "NEON_GUIDE"),
         ("request_id", "not-a-uuid"),
         ("conversation_id", "not-a-uuid"),
         ("request_id", "11111111111141118111111111111111"),

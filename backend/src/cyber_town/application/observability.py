@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import logging
 import re
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import partial
 from threading import Lock
 from types import MappingProxyType
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 from uuid import UUID
 
 OBSERVABILITY_SCHEMA_VERSION = 1
@@ -22,6 +24,44 @@ _MIN_HMAC_KEY_BYTES = 16
 _TAG_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _PERSONA_VERSION_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _LOGGER = logging.getLogger("cyber_town.observability")
+
+
+type StorageLane = Literal["business", "control", "observability"]
+
+
+class StorageExecutor(Protocol):
+    async def run[T](
+        self,
+        lane: StorageLane,
+        operation: Callable[[], T],
+        *,
+        finish_on_cancel: bool = False,
+    ) -> T: ...
+
+    async def aclose(self) -> None: ...
+
+
+async def finish_cleanup[T](operation: Awaitable[T]) -> T:
+    """Drain required cleanup without mistaking caller cancellation for completion."""
+    task = asyncio.ensure_future(operation)
+    while True:
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            if task.done():
+                return task.result()
+
+
+async def call_storage[T](
+    executor: StorageExecutor | None,
+    lane: StorageLane,
+    operation: Callable[[], T],
+    *,
+    finish_on_cancel: bool = False,
+) -> T:
+    if executor is None:
+        return operation()
+    return await executor.run(lane, operation, finish_on_cancel=finish_on_cancel)
 
 
 class TraceStage(StrEnum):
@@ -145,6 +185,10 @@ class TraceErrorCode(StrEnum):
     PROVIDER_UNAVAILABLE = "provider_unavailable"
     PROVIDER_INVALID_RESPONSE = "provider_invalid_response"
     UNSAFE_CONTENT = "unsafe_content"
+    RATE_LIMITED = "rate_limited"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    CONTROL_UNAVAILABLE = "control_unavailable"
+    CIRCUIT_OPEN = "circuit_open"
     INTERNAL_ERROR = "internal_error"
     OBSERVABILITY_UNAVAILABLE = "observability_unavailable"
 
@@ -408,7 +452,8 @@ class TraceMetadata:
                 or self.idempotency_outcome is not IdempotencyOutcome.CACHE_REPLAY
                 or not self.from_cache
                 or self.provider_dispatch_count != 0
-                or self.terminal_outcome is not TerminalOutcome.REPLAYED
+                or self.terminal_outcome
+                not in {TerminalOutcome.REPLAYED, TerminalOutcome.CANCELLED}
             ):
                 raise ValueError("Cache replay invariants are inconsistent")
         elif self.from_cache:
@@ -633,14 +678,81 @@ class DialogueTrace:
     _finished: bool = False
     _recorder_failed: bool = False
     orphaned: bool = False
+    executor: StorageExecutor | None = None
+    _pending: list[Callable[[], None]] | None = None
 
     def __post_init__(self) -> None:
         self._stage_values = {}
 
+    async def _apply_async(self, prepare: Callable[[], None]) -> None:
+        if self.executor is None:
+            prepare()
+            return
+        pending: list[Callable[[], None]] = []
+        self._pending = pending
+        try:
+            prepare()
+        finally:
+            self._pending = None
+        for operation in pending:
+            try:
+                await self.executor.run("observability", operation, finish_on_cancel=True)
+            except Exception:
+                if not self._recorder_failed:
+                    _LOGGER.warning("observability_unavailable")
+                    self._recorder_failed = True
+
+    async def aopen(self) -> None:
+        await self._apply_async(self.open)
+
+    async def astage(
+        self,
+        stage: TraceStage,
+        outcome: StageOutcome = StageOutcome.COMPLETED,
+        *,
+        reason_code: TraceReasonCode = TraceReasonCode.COMPLETED,
+        error_code: TraceErrorCode = TraceErrorCode.NONE,
+        item_count: int = 0,
+        started_at_utc: datetime | None = None,
+    ) -> None:
+        await self._apply_async(
+            partial(
+                self.stage,
+                stage,
+                outcome,
+                reason_code=reason_code,
+                error_code=error_code,
+                item_count=item_count,
+                started_at_utc=started_at_utc,
+            )
+        )
+
+    async def afinish(
+        self,
+        *,
+        terminal_outcome: TerminalOutcome,
+        reason_code: TraceReasonCode,
+        error_code: TraceErrorCode = TraceErrorCode.NONE,
+        retryable: bool = False,
+        from_cache: bool = False,
+    ) -> None:
+        await finish_cleanup(
+            self._apply_async(
+                partial(
+                    self.finish,
+                    terminal_outcome=terminal_outcome,
+                    reason_code=reason_code,
+                    error_code=error_code,
+                    retryable=retryable,
+                    from_cache=from_cache,
+                )
+            )
+        )
+
     def open(self) -> None:
         durable = self._durable_recorder()
         if durable is not None:
-            self._safe_durable_call(lambda: durable.start_trace(self._open_metadata()))
+            self._safe_durable_call(partial(durable.start_trace, self._open_metadata()))
 
     def stage(
         self,
@@ -670,7 +782,7 @@ class DialogueTrace:
         if durable is not None:
             stage_record = self._stage_record(stage, self._stage_values[stage])
             self._safe_durable_call(
-                lambda: durable.record_progress(self._open_metadata(), stage_record)
+                partial(durable.record_progress, self._open_metadata(), stage_record)
             )
 
     def finish(
@@ -733,7 +845,7 @@ class DialogueTrace:
         durable = self._durable_recorder()
         if durable is not None:
             self._safe_durable_call(
-                lambda: durable.finish_trace(record, self._stage_records(finished_at))
+                partial(durable.finish_trace, record, self._stage_records(finished_at))
             )
         else:
             self._flush_stages(finished_at)
@@ -865,6 +977,9 @@ class DialogueTrace:
         return None
 
     def _safe_durable_call(self, operation: Callable[[], None]) -> None:
+        if self._pending is not None:
+            self._pending.append(operation)
+            return
         try:
             operation()
         except Exception:
@@ -873,6 +988,9 @@ class DialogueTrace:
                 self._recorder_failed = True
 
     def _safe_record(self, record: ObservabilityRecord) -> None:
+        if self._pending is not None:
+            self._pending.append(partial(self.recorder.record, record))
+            return
         try:
             self.recorder.record(record)
         except Exception:
@@ -884,7 +1002,15 @@ class DialogueTrace:
 class DialogueObservability:
     """Dependency-injected, default-off factory for dialogue trace attempts."""
 
-    __slots__ = ("_monotonic_clock", "_provider_kind", "_recorder", "_scope_key", "_wall_clock")
+    __slots__ = (
+        "_boundary_pending",
+        "_executor",
+        "_monotonic_clock",
+        "_provider_kind",
+        "_recorder",
+        "_scope_key",
+        "_wall_clock",
+    )
 
     def __init__(
         self,
@@ -894,7 +1020,10 @@ class DialogueObservability:
         provider_kind: ProviderKind = ProviderKind.UNKNOWN,
         wall_clock: Callable[[], datetime] | None = None,
         monotonic_clock: Callable[[], float] | None = None,
+        executor: StorageExecutor | None = None,
     ) -> None:
+        self._executor = executor
+        self._boundary_pending: list[ObservabilityRecord] | None = None
         self._recorder = recorder or NoOpObservabilityRecorder()
         if not isinstance(self._recorder, ObservabilityRecorder):
             raise TypeError("Observability recorder is invalid")
@@ -924,6 +1053,7 @@ class DialogueObservability:
         npc_id: str,
         conversation_id: UUID,
         input_chars: int,
+        _start: bool = True,
     ) -> DialogueTrace | None:
         if isinstance(self._recorder, NoOpObservabilityRecorder):
             return None
@@ -947,15 +1077,110 @@ class DialogueObservability:
             started_monotonic=self._monotonic_clock(),
             wall_clock=self._wall_clock,
             monotonic_clock=self._monotonic_clock,
+            executor=self._executor,
         )
-        trace.open()
-        trace.stage(TraceStage.HTTP_RECEIVED)
-        trace.stage(TraceStage.REQUEST_VALIDATION)
+        if _start:
+            trace.open()
+            trace.stage(TraceStage.HTTP_RECEIVED)
+            trace.stage(TraceStage.REQUEST_VALIDATION)
         return trace
 
+    async def start_validated_async(
+        self,
+        *,
+        trace_id: UUID,
+        request_id: UUID,
+        player_id: str,
+        npc_id: str,
+        conversation_id: UUID,
+        input_chars: int,
+    ) -> DialogueTrace | None:
+        trace = self.start_validated(
+            trace_id=trace_id,
+            request_id=request_id,
+            player_id=player_id,
+            npc_id=npc_id,
+            conversation_id=conversation_id,
+            input_chars=input_chars,
+            _start=False,
+        )
+        if trace is not None:
+            try:
+                await trace.aopen()
+                await trace.astage(TraceStage.HTTP_RECEIVED)
+                await trace.astage(TraceStage.REQUEST_VALIDATION)
+            except asyncio.CancelledError:
+                await trace.afinish(
+                    terminal_outcome=TerminalOutcome.CANCELLED,
+                    reason_code=TraceReasonCode.CANCELLED,
+                )
+                raise
+        return trace
+
+    async def record_validation_failure_async(self, trace_id: UUID) -> None:
+        await self.record_boundary_failure_async(
+            trace_id,
+            error_code=TraceErrorCode.VALIDATION_ERROR,
+            terminal_outcome=TerminalOutcome.REJECTED,
+            retryable=False,
+        )
+
+    async def record_boundary_failure_async(
+        self,
+        trace_id: UUID,
+        *,
+        error_code: TraceErrorCode,
+        terminal_outcome: TerminalOutcome,
+        retryable: bool,
+    ) -> None:
+        pending: list[ObservabilityRecord] = []
+        self._boundary_pending = pending
+        try:
+            self.record_boundary_failure(
+                trace_id,
+                error_code=error_code,
+                terminal_outcome=terminal_outcome,
+                retryable=retryable,
+            )
+        finally:
+            self._boundary_pending = None
+        for record in pending:
+            try:
+                await call_storage(
+                    self._executor,
+                    "observability",
+                    partial(self._recorder.record, record),
+                    finish_on_cancel=True,
+                )
+            except Exception:
+                _LOGGER.warning("observability_unavailable")
+
     def record_validation_failure(self, trace_id: UUID) -> None:
+        self.record_boundary_failure(
+            trace_id,
+            error_code=TraceErrorCode.VALIDATION_ERROR,
+            terminal_outcome=TerminalOutcome.REJECTED,
+            retryable=False,
+        )
+
+    def record_boundary_failure(
+        self,
+        trace_id: UUID,
+        *,
+        error_code: TraceErrorCode,
+        terminal_outcome: TerminalOutcome,
+        retryable: bool,
+    ) -> None:
         if isinstance(self._recorder, NoOpObservabilityRecorder):
             return
+        if not isinstance(trace_id, UUID):
+            raise TypeError("Observability boundary trace identifier is invalid")
+        if not isinstance(error_code, TraceErrorCode):
+            raise TypeError("Observability boundary error code is invalid")
+        if not isinstance(terminal_outcome, TerminalOutcome):
+            raise TypeError("Observability boundary terminal outcome is invalid")
+        if type(retryable) is not bool:
+            raise TypeError("Observability boundary retryable value is invalid")
         now = self._wall_clock()
         for sequence, stage in enumerate(TraceStage, start=1):
             if stage is TraceStage.HTTP_RECEIVED:
@@ -963,7 +1188,7 @@ class DialogueObservability:
                 error = TraceErrorCode.NONE
             elif stage is TraceStage.REQUEST_VALIDATION or stage is TraceStage.TERMINAL:
                 outcome = StageOutcome.FAILED
-                error = TraceErrorCode.VALIDATION_ERROR
+                error = error_code
             else:
                 outcome = StageOutcome.NOT_REACHED
                 error = TraceErrorCode.NONE
@@ -997,14 +1222,14 @@ class DialogueObservability:
                 persona_version=None,
                 provider_kind=ProviderKind.UNKNOWN,
                 record_status=RecordStatus.COMPLETE,
-                terminal_outcome=TerminalOutcome.REJECTED,
-                error_code=TraceErrorCode.VALIDATION_ERROR,
+                terminal_outcome=terminal_outcome,
+                error_code=error_code,
                 reason_code=TraceReasonCode.NOT_REACHED,
                 idempotency_outcome=IdempotencyOutcome.NOT_REACHED,
                 short_term_outcome=ShortTermOutcome.NOT_REACHED,
                 long_term_outcome=LongTermOutcome.NOT_REACHED,
                 relationship_outcome=RelationshipOutcome.NOT_REACHED,
-                retryable=False,
+                retryable=retryable,
                 from_cache=False,
                 provider_dispatch_count=0,
                 started_at_utc=now,
@@ -1025,6 +1250,9 @@ class DialogueObservability:
         )
 
     def _safe_boundary_record(self, record: ObservabilityRecord) -> None:
+        if self._boundary_pending is not None:
+            self._boundary_pending.append(record)
+            return
         try:
             self._recorder.record(record)
         except Exception:

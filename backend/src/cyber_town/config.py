@@ -40,6 +40,7 @@ LONG_TERM_MEMORY_DATABASE_PATH = Path("data/cyber-town.sqlite3")
 LONG_TERM_MEMORY_UAT_DATABASE_ROOT = Path("data/uat/f-005")
 LONG_TERM_MEMORY_ACCEPTANCE_LEDGER_PATH = Path("data/acceptance-ledgers/f-005.sqlite3")
 RELATIONSHIP_SCOPE_FIELDS: tuple[str, str] = ("player_id", "npc_id")
+SAFETY_CONTROL_DATABASE_PATH = Path("data/cyber-town-control.sqlite3")
 RELATIONSHIP_RULE_VERSION = "f-006-v1"
 RELATIONSHIP_INITIAL_SCORE = 20
 RELATIONSHIP_MIN_SCORE = 0

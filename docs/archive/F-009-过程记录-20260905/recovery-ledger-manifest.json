@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "historical": true,
+  "current_authority": false,
+  "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\evidence.md",
+  "copy": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\archive\\F-009-过程记录-20260905\\recovery-20260905-01-evidence-ledger.md",
+  "bytes": 1343016,
+  "source_sha256": "e36418bebf25157e5cc0ffe9ea06e648cf1c3457c3400b1bb41fecb4a8d020c4",
+  "copy_sha256": "e36418bebf25157e5cc0ffe9ea06e648cf1c3457c3400b1bb41fecb4a8d020c4",
+  "verified_byte_identical": true,
+  "purpose": "F-009 Step6 recovery resource and runtime ledger before current evidence compaction"
+}

@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "original": {
+    "path": "evidence.md",
+    "git_blob_bytes": 36115596,
+    "git_blob_sha256": "7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979",
+    "archived_source_bytes": 36275701,
+    "archived_source_sha256": "3b03fcef07d1784f41d39660935a908874995d8c8eee854bbb1490042ec85f74"
+  },
+  "parts": [
+    {
+      "order": 1,
+      "path": "evidence.parts/part-001.md",
+      "bytes": 4193971,
+      "sha256": "b79046d299b4b6a49aab9cc8c075524f7ede4e6ae1e2a0323e93539b263f346a"
+    },
+    {
+      "order": 2,
+      "path": "evidence.parts/part-002.md",
+      "bytes": 4194121,
+      "sha256": "da3d6a648ae0ebd3a529e251dce057403dde265036bfea749a21f0eb6b52ae6d"
+    },
+    {
+      "order": 3,
+      "path": "evidence.parts/part-003.md",
+      "bytes": 4194161,
+      "sha256": "c779dca5053b0cb21f97da0d3a46a7e3f36a47213023bdad3295b51067323ac2"
+    },
+    {
+      "order": 4,
+      "path": "evidence.parts/part-004.md",
+      "bytes": 4193993,
+      "sha256": "249b9548023b0f173206f3fb51e818ec5c4252440221dbf5b752ad045b65cc20"
+    },
+    {
+      "order": 5,
+      "path": "evidence.parts/part-005.md",
+      "bytes": 4194085,
+      "sha256": "4d91c57b823080db14c7d4db0acb9ba5f95d66d833ade96d238145989c0c154e"
+    },
+    {
+      "order": 6,
+      "path": "evidence.parts/part-006.md",
+      "bytes": 4194067,
+      "sha256": "2036c40f758168a16b0fb57ba9366931211a7c15346017d3f372d7be236652c3"
+    },
+    {
+      "order": 7,
+      "path": "evidence.parts/part-007.md",
+      "bytes": 4194161,
+      "sha256": "34703cab80cffacbdd56e316264b90627ac52400e210247bea8f246a207c0fec"
+    },
+    {
+      "order": 8,
+      "path": "evidence.parts/part-008.md",
+      "bytes": 4194243,
+      "sha256": "72f4605584024ac69d13278efe0c6887ef78c837a01c81e354bd07a576cc9e2e"
+    },
+    {
+      "order": 9,
+      "path": "evidence.parts/part-009.md",
+      "bytes": 2562794,
+      "sha256": "8ee9d6485ecd32bcf1b8b4fd82a55567a9a81b15f1949c6a0891066d44693515"
+    }
+  ],
+  "reassembly": {
+    "method": "binary_concatenation_in_index_order",
+    "expected_bytes": 36115596,
+    "expected_sha256": "7faa58c14a36029de2864fc410fcfcdd6bfd2e15ee648ac4079141e708fba979",
+    "content_verified_by_current_gate": false
+  }
+}

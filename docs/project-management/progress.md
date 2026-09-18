@@ -1,49 +1,29 @@
 # 项目进度
 
-## 当前状态
+更新时间：2026-09-18
 
-- 生命周期：`F-008_observability_agent_evaluation / step_6_complete / awaiting_step_7_authorization`。
-- 当前能力：`origin/main` 已支持固定 Nia/Ivo/Rhea persona；短期状态按 `player_id + npc_id + conversation_id` 隔离，长期记忆与关系按 `player_id + npc_id` 隔离；Godot 提供固定 allowlist 选择、新 conversation、可见状态清空与旧回调抑制。公开 Dialogue v1 不变。
-- F-007 交付：功能/文档提交 `a02bb4c`、`2fba507`、`f381316`、`15cef84` 经 PR #7 的 GitHub Linux `quality` 通过后，功能 squash merge 提交为 `a049a94ad2104a4629a8e201399bb66592319fc5`；任务卡与实施计划由 PR #8 归档，归档合并提交为 `59b7b8229dd3ad1d7ed82e5225b4fb1623462cb8`。
-- 最终自动化：统一 fake-only 质量入口 `1319 passed`；lock、ruff、73 文件 mypy、Schema、Godot import/unit、9 健康 + 10 对话 + 三 NPC loopback、ignore/sensitive 均通过，自动化不读取 `.env` 或调用真实 provider。
-- 检索评估：72 项固定 golden set precision `1.00`、recall `1.00`；跨 scope 泄漏、已遗忘召回、旧值复活和空结果虚构均为 0。
-- 独立 QA：首轮 5 项 P1、3 项 P2 及近邻全部失败优先修复；两名 reviewer 最终均为 `NO FINDINGS`。
-- 真实评估与用户 UAT：Step 5 为 7 次、1244/106 tokens、USD 0.000690；Step 7 为 3 次、500/141 tokens、USD 0.000408；合计 10 次、1744/247 tokens、USD 0.001098，pending=0，未超预算。
-- 用户真实 Godot 窗口已验证初始 unknown、记住、跨窗口/重启召回、更新、遗忘及最终 unknown；8000 端口已释放，正式业务数据库不存在。
-- 运行资源：Step 5/Step 7 隔离 SQLite、metadata-only 调用台账及 SQLite sidecar 均受 Git 忽略并保留；项目 `.venv`、`.env`、Godot 缓存与共享工具同样保留，未获得任何删除授权。
-- F-006 Step 0 已锁定：双元关系 scope、追加 SQLite `0002` 迁移策略、确定性五分类/状态机、只读关系 API、fake-only 评估边界和最小 Godot 视觉契约。
-- F-006 Step 1 已完成：本地分支 `feat/f-006-deterministic-affection`、冻结 relationship 配置及失败优先负例；首次 77 failed，最终 `test_config.py` 354 passed，定向 ruff/format/mypy/diff 通过。未创建数据库、表、migration 或运行时 data。
-- F-006 Step 2 已完成：纯领域严格 suggestion parser、确定性五类映射、置信度阈值、0–100 饱和、四阶段、UTC 冷却和参数化穷举不变量；首次模块缺失，最终领域 68 passed、配置联合 422 passed，定向 ruff/format/mypy/diff 通过。未接入 provider、SQLite、API 或 Godot。
-- F-006 Step 3 已完成：保持 `0001` 不变，增加有序迁移前缀校验与 `0002_relationship_state.sql`；实现双元 scope 状态/metadata-only 事件仓储、`BEGIN IMMEDIATE` 原子写入、request 幂等/冲突、锁边界和顺序审计回放。定向 34 passed；全套自动化分两批 `672 + 576 = 1248 passed`，mypy、ruff、format、diff 通过。未接入 DialogueService、API、Godot 或 provider；仅 pytest 临时 SQLite，不存在项目运行时数据库。
-- F-006 Step 4 已完成：同次 provider completion 的 JSON 内部建议经严格 parser 进入确定性关系服务；仅 completed 有效请求写入。新增只读关系 GET，Dialogue v1/schema 不变；Godot 低保真快照与 request 刷新已接入。140 项定向后端测试、Godot 单测和 10 场景 Godot→FastAPI→FakeProvider→临时 SQLite loopback 通过；未读取 `.env`、调用真实模型、复用 F-005 资源、创建项目运行时数据库、提交或推送。
-- F-006 Step 5 已完成：新增纯内存评估器，遍历 2020 个基础 + 2020 个冷却的规则判定、24 个越权/注入建议与 2 个 UTC 日界案例，违规为 0；completion→API 的 3 个操纵 suggestion 回归均完成正常 Dialogue v1、记录 inert `candidate_invalid` 事件并保持 20 分。关系专项 82 passed，定向 ruff/format/mypy 通过；仅使用 pytest 临时 SQLite，未读取 `.env`、调用真实模型、复用 F-005 资源、提交或推送。
-- F-006 Step 6 已完成：三个临时 FakeProvider FastAPI 黑盒服务验证关系初始/成功/重放/scope/422、越权 completion 仍 inert、4 个并发 completed 请求只保留一次有效 +2；未确认产品缺陷。统一质量入口运行至既有对话 loopback，8000 已释放但终端未捕获其末行摘要；应用内浏览器拒绝 loopback 并作为工具限制记录，不替代 Step 7 UAT。临时服务均已停，正式运行时数据库不存在。
-- F-006 Step 7 已完成：最小修复将关系区内容间距设为 4、消息输入最小高度设为 64；场景/集成几何断言通过。用户 Godot + FakeProvider 窗口重新 UAT 确认 reply、`21/100`、`Acquaintance`、`Change: +1` 与完整 `Reason: rule_friendly`。交付前审查补强客户端 reason 白名单、409 冲突映射、关系 GET OpenAPI 参数和审计回放/状态表一致性校验；最终统一质量入口通过（1257 pytest、Godot import/unit、9 连通性 + 10 对话 loopback、ruff、67 文件 mypy、schema、lock、ignore/sensitive）。临时服务已停、8000 已释放，正式运行时数据库不存在。
-- F-006 Git 交付已完成：功能提交 `f943af4` 的 PR #6 已通过 GitHub Linux `quality`，并 squash merge 到 `main` / `origin/main` 的 `3c2059aad7ef5a1e9dd0154ad49d2b0e93f8f47f`；任务卡与实施计划已归档。
-- F-007《多 NPC 与隔离》已完成 Step 0—7、固定视口 P2 与交付前关系 GET allowlist P1 修复、Git 交付和归档。持续边界仍为 fake-only，不得读取 `.env`、调用真实模型、读取/修改/复用 F-005 验收数据库、台账或预算。
-- F-007 Step 0 已完成：F-006 merge SHA 存在于 `origin/main`；既有短期为三元 scope、长期/关系为双元 scope，既有迁移为 `0001` 与 `0002`。用户已确认 Nia、Ivo、Rhea 三 persona 及固定 640×400 Godot 选择契约。
-- F-007 Step 1 已完成：以 `origin/main` 的 `3c2059a` 创建干净隔离 worktree 与 `feat/f-007-multi-npc-isolation` 分支；新增不可变 Nia/Ivo/Rhea registry 与两份严格 persona JSON。首次身份边界测试因缺 registry 收集失败；实现后 persona、registry、dialogue application/memory 定向测试共 `86 passed`，ruff、format、mypy 与 diff 通过。API composition、Dialogue v1、迁移、长期记忆、关系、Godot、依赖与 CI 均未修改。
-- F-007 Step 2 已完成：红测 `5 failed, 6 passed` 精确暴露 Ivo/Rhea composition 404 与 Nia 降级串扰；实现三 persona composition 和 persona-aware 安全降级后，Step 2 专项 `11 passed`，相关 persona、API、短期/长期/关系回归 `219 passed`，ruff、format、mypy 与 diff 通过。未知 NPC 零 provider/持久化写入，基础三元/双元 scope 隔离通过；Dialogue v1/Schema、迁移、持久化实现、Godot、依赖和 CI 未改。
-- F-007 Step 3 已完成：新增 6 组 fake-only 隔离矩阵，覆盖 2 player × 3 NPC × 2 conversation 的短期历史、2 player × 3 NPC 的跨 conversation 长期事实/关系、同 scope replay、跨 scope request ID 冲突、跨 NPC 并发、同 scope 串行和取消抵抗型晚到结果。Step 3 专项 `6 passed`，相关回归 `285 passed`，全量后端 `1277 passed`；ruff、mypy、变更文件 format 与 diff 通过。矩阵首轮即通过，未修改生产实现、公开契约、迁移、持久化、Godot、依赖或 CI。
-- F-007 Step 4 已完成：新增 Godot 固定三 NPC registry 与 `OptionButton` 选择行；对话和关系客户端均按活动 NPC 构造 scope，切换时取消/断开旧 HTTP 回调、推进 generation、生成新 conversation，并清空 reply/trace/retry/input/关系状态。首轮 Godot 契约因 registry 缺失失败；loopback 暴露新增选择行导致关系 reason 超出 360px 内容视口，最终将输入最低高度 `64→48` 后通过。统一质量入口通过 1277 pytest、70 文件 mypy、ruff、schema、Godot import/unit、9 健康场景及 10 个既有对话场景 + 1 个 Nia/Ivo/Rhea 切换 loopback。
-- F-007 Step 5 已完成：新增纯内存多 NPC 性质评估，覆盖 3 NPC、60 个短期 scope/1770 对、12 个持久 scope/66 对、12 个跨 conversation owner 与 20 个对抗 ID，违规为 0；真实 HTTP 验证 15 个 NPC ID 注入均在 provider/持久化前 404；72 个三 NPC 恶意关系建议全部 `candidate_invalid / delta 0 / score 20`。API scope 篡改、30 次快速 Godot 切换和 6 个 player+NPC 的服务重建回放均零泄漏。新增专项 19 passed、相关回归 101 passed；统一门禁 1296 pytest、73 文件 mypy 及其余既有检查全部通过，未确认产品缺陷。
-- F-007 Step 6 已完成：独立 HTTP QA 首轮确认控制空白 `npc_id` 被有损 trim 后绕过 allowlist 的 P1；用户授权后以 7 个失败优先案例修复，29 个 Unicode 空白码点/87 个组合与独立补丁复审均通过。恢复 QA 后，三 persona、短期/长期/关系 scope、重放/冲突、恶意建议、注入、跨 NPC 并发、同 scope 串行、取消晚到、服务重建及 Godot 切换均无未关闭缺陷。最终统一门禁 `1303 passed`，ruff、73 文件 mypy、schema、Godot/loopback、lock 与安全复检通过。
-- F-007 Step 7 已完成：首轮真实窗口 UAT 的三 NPC 隔离通过，但两行合法 reply 稳定复现 `Reason` 裁切 P2。失败优先回归为 `bottom=372 / viewport=360`；最小修复将 MessageInput 最低高度 `48→36`、VBox 间距 `4→2`。重新 UAT 确认 Nia/Rhea 两行回复与完整 reason 同屏、Ivo 正常、切换清空及回切 owner 快照；最终统一门禁 `1303 passed`，其余检查全绿。
-- F-007 Git 交付前 P1 已关闭：计划审计与黑盒复现确认关系 GET 对未知 NPC 返回 200 初始快照并进入 SQLite read。失败优先专项为 `5 failed, 9 passed`；最小修复在 API 边界复用固定 persona allowlist，扩展后的 13 类非法路径与 3 个合法 NPC 专项 `21 passed`、相关联合回归 `202 passed`，独立补丁复审 `NO FINDINGS`。最终统一门禁 `1319 passed`，ruff、73 文件 mypy、schema、Godot import/unit、9 健康 + 10 对话 + 三 NPC loopback、lock 与安全复检全部通过。
-- F-007 Git 交付与归档已完成：四个可二分提交推送到 `feat/f-007-multi-npc-isolation`；PR #7 的 GitHub Linux `quality` 在 1m1s 内通过，并 squash merge 为 `a049a94ad2104a4629a8e201399bb66592319fc5`。PR #8 的同一 `quality` 也在 1m1s 内通过，归档合并提交为 `59b7b8229dd3ad1d7ed82e5225b4fb1623462cb8`；归档任务卡和实施计划保留 Step 0—7、P1/P2、UAT 与最终门禁证据。
-- F-008 Step 0 已完成：锁定独立且默认关闭的 metadata-only observability SQLite/`0001` 候选、只读 CLI、领域分隔 HMAC scope tag、7 天/10,000 trace 与 30 天/50 次评估到期标记、synthetic fixture-only replay，以及 fake-only 性能基线边界；未创建数据库、分支或 worktree。
-- F-008 Step 1 已完成：从现有 `origin/main` 的 `742317c` 创建隔离 worktree/功能分支，失败优先建立 schema v1 不可变 metadata DTO、固定 enum、HMAC-SHA-256 三领域 scope tag、recorder protocol、no-op/in-memory recorder 与 trace/request/execution 关联不变量。红测因模块缺失在收集阶段失败；实现后定向 `39 passed`，ruff、format、mypy、diff 全绿。未接 SQLite、API/composition、DialogueService/provider、记忆/关系、Godot 或 CI；未提交。worktree 内 `.ruff_cache` 与 `.mypy_cache` 已登记并保留，未删除。
-- F-008 Step 2 已完成：将默认 no-op、显式注入的 metadata-only trace 接入 FastAPI validation 及 DialogueService 全阶段，覆盖成功/失败/降级、replay/retry/并发 waiter、取消/orphan/迟到结果和短期/长期/关系 outcome；共享执行只计一次 provider dispatch/token/latency，禁止原文 sentinel 命中 0，recorder 故障不改变 Dialogue v1 或状态写入。红测 `9 failed, 39 passed`，最终专项 `56 passed`、相关回归 `614 passed`、契约/schema/health `63 passed`，ruff/format/mypy/diff 全绿。未接 observability SQLite/CLI/evaluator/replay index、未改 Godot/迁移/依赖/CI、未提交。E 盘固定测试根已到期并等待清理授权；worktree 缓存继续保留。
-- F-008 Step 3 已完成：新增严格、不可变的 `f-008-evaluator-v1` 与仓库内 metadata-only `f-008-observability-fixture-v1`，固定 24 case/8 维度和三 persona digest；结果只含 allowlist metadata 与 canonical digest。首轮因 evaluator 模块不存在收集失败，实现后定向 `14 passed`、相关回归 `614 passed`；24/24 verdict 通过，trace/stage 100%，scope 泄漏、禁止原文、provider 归属错误及非零成本均为 0；三个全新进程 digest 均为 `8266c2e4cc6b32a4525c5b36fffa63d94142d4fb80ea3b42f9fe358c94be81b4`。ruff、78 文件 mypy、schema、F-008 format 和 diff/敏感扫描通过；未接 persistence/CLI/replay index、未改 Godot/契约/迁移/依赖/CI、未提交。
-- F-008 Step 4 已完成：新增独立 STRICT observability `0001`、显式路径 SQLite repository/recorder、只读 trace/evaluation/replay CLI、只标记不删除的 retention 与 metadata-only replay index。首轮 2 个模块缺失收集错误；实现后专项 `21 passed`、相关回归 `635 passed`。事务/唯一 owner/锁冲突/schema 损坏均安全 rollback；真实 trace 不可执行回放，synthetic fixture 仅索引；SQLite/WAL/SHM/CLI 禁止原文命中 0。ruff、83 文件 mypy、schema、15 个 F-008 文件 format、diff、ignore/sensitive 全绿；正式 observability SQLite 不存在，未改 Godot/Dialogue v1/业务 migration/依赖/CI，未提交。
-- F-008 Step 5 已完成：durable open/stage 与 restart recovery 红测 `2 failed`，获单独授权后实现 start/progress/finalize 事务和 `abandoned_after_restart` 收口；P1/Step 4 专项 `57 passed`、相关集成 `47 passed`、Step 5 最终 `8 passed`、完整 fake-only 后端 `1416 passed`。single-case replay 三进程 digest 一致；30 样本性能基线已记录；ruff/format/84 文件 mypy/schema/diff/ignore/sensitive 全绿。完整回归误生成的 2 个 synthetic `.env` 和 1 个 `.env.example` 已经精确授权逐文件删除；复核 `.env*` 为 0，其他测试资源未变。
-- F-008 Step 6 已完成：独立设计的 fake-only QA 覆盖三 persona、三元/双元 scope、对抗输入、replay/retry/waiter/conflict、取消/orphan/迟到、recorder 故障、重启/retention/CLI/replay 和固定 640×400 Godot loopback；20 trace/280 stage、24/24 evaluator case 通过，trace/stage 100%，scope 泄漏、禁止原文、provider 归属错误和非零成本均为 0，三进程 digest 一致，未发现 P0—P3 产品缺陷。定向 `739 passed`，完整统一入口 `1418 passed`，lock/ruff/84 文件 mypy/schema/Godot/全部 loopback/ignore/sensitive/diff 全绿；16 个 F-008 Python 文件 format 通过，全仓仅保留 3 个与 `origin/main` 一致的既有格式基线偏差。Step 5 根和 Step 6 QA 根均已按本次授权删除并复核；未来临时资源改由用户按 Codex 审计建议手动删除。
-- F-008 Step 7 已完成：用户在真实 640×400 Godot 窗口验证 Nia/Ivo/Rhea、独立 trace、关系 owner 快照、切换清空与快速切换无迟到污染；CLI 按 trace/request/persona/scope/time/outcome/limit 及三 section 的 text/JSON 查询均通过，只读哈希不变且缺失数据库不创建。4 个用户 completed trace 各有 14 stage/1 fake dispatch/0 成本；1 个 synthetic open trace 重启后只收口一次为 abandoned。24/24 evaluator case 与三进程 digest `6647287d3c621e0558636a798631a06b423836cd3e92af46b27cd07ffb9103c4` 一致，trace/stage 100%，scope 泄漏、禁止原文、provider 归属错误和非零成本均为 0。定向 CLI `5 passed`，最终统一入口 `1418 passed`，其余格式/diff/migration/正式路径/端口门禁全绿；未发现未关闭缺陷。
-- F-008 Git 功能交付已完成：功能按 metadata 核心、Dialogue instrumentation、deterministic evaluator、durable SQLite/CLI/recovery 拆为 `fb732f0`、`eda6b54`、`5fc19a5`、`9afa28b` 四个提交；PR #11 的 GitHub Linux `quality` 在 58 秒内通过，squash merge 为 `c78f1c190bd3a3753e849aa7da76c88dbf5c27b2`。功能 PR 未混入文档、缓存、SQLite 或临时根，功能分支/worktree 保留等待单独清理授权。
-- F-008 文档收口由 PR #12 承载：完整任务卡和实施计划移入 archive，R-09 标记完成，current-task/implementation-plan 恢复 `no_active_task / awaiting_roadmap_selection`；R-10 保持未选择，未进入起草、Step 0、实现或部署。
-- F-008 Step 7 的 UAT 根和最终门禁根已由用户手动删除；Git 交付预检只读确认两条精确路径均不存在，本轮 Codex 未执行删除。worktree 及 `.ruff_cache`、`.mypy_cache`、`.pytest_cache`、`game/.godot` 继续保留。
-- 未覆盖：Qdrant/embedding、正式素材、真实模型评估与生产部署不在 F-008 范围。
+## 当前结论
 
-## 下一批准动作
+F-009 Step 0—6、最终quality10、固定性能1+5及Step 7交付实现均已完成。归档包装提交 `265a544`、跨平台类型兼容提交 `aefa027`、通用CI与Windows专项验收边界提交 `4991f31` 已推送PR #13；HEAD `4991f317`的Quality run `35342268748`全绿。当前任务卡与实施计划已准备归档，最终归档HEAD仍须通过CI后才能合并。
 
-F-008 已完成并归档，当前为 `no_active_task / awaiting_roadmap_selection`。不得自动进入 R-10、起草任务卡、实现或部署。功能与文档分支、F-008 worktree 及工具/Godot 缓存继续保留，清理须取得用户单独授权；Codex 只审计并给出手动处置建议。
+两个finding已分别归类：`docs/archive/F-009-过程记录-20260905/evidence.md` 的HEAD blob为36,115,596 bytes，超过全局5 MiB文本上限，属于 `archive_packaging_policy_conflict`，且该大文件正文尚未被当前门禁验证；`manifest.json` 的 `sensitive_scan.findings.github_live_token` 值为空数组、元素数0、真实token/私钥签名匹配0，属于 `deterministic_scanner_false_positive`。扫描器、包装入口和workflow与 `origin/main` 同blob，`environment_drift=false`。这不是产品、性能或环境失败，但仍构成最终交付验证缺口。
+
+R2实际产生9个连续分片，范围2,562,794—4,194,242 bytes，均为有效UTF-8且低于4 MiB固定上限；机器索引和manifest均可严格JSON解析。R3定向扫描入口、索引、manifest和9片后0 finding，`content_verified_by_current_gate=true`。随后正式CI完整执行敏感信息前后门、静态、schema、Godot、两组集成及pytest并通过；未重跑Step 6的quality10或性能矩阵。
+
+只读诊断确认：活动批次的drain等待循环每轮执行完整batch/recovery/identity扫描，当前等价检查6.374616秒；循环在耗时检查后先判deadline而未复核marker。R4/R6均有marker action3、约20秒失败及随后995，现有tmp_path测试不覆盖活动根容量扫描。最小修复只移除等待循环内的重复全树check，确认后仍执行完整check，不改10秒超时或安全边界。
+
+本次修复在等待marker时只轮询observer error与原10秒deadline，marker确认后仍执行一次原完整check；新增确定性慢check回归要求完整check只在确认后执行一次。V1–V4最终全过：tool16 138函数/533参数，R7 18选择器/43节点，Ruff与strict mypy通过，定向2 passed、固定清单collect 43 tests。三个运行根仍不存在，冻结指纹见evidence。
+
+tool16唯一运行138函数/533参数全passed，native completed=true、5,218 events、无overflow/unknown/reparse，边界为空，observer退出且端口恢复。tool16根531文件/4,714,834 bytes，恢复区950,837,019 bytes；R7与quality10仍不存在。
+
+R7唯一运行43/43节点全部通过且正式readiness回执有效；failed/skipped/xfailed/not_run均为空，native completed=true、144 events，全部恢复项和脱敏为true。恢复区950,898,725 bytes，加quality10 1GiB上限为2,024,640,549 bytes≤2GiB；quality10现可执行一次且仅一次。
+
+quality10唯一运行九阶段全部exit0；完整pytest共3,075结果，2,942 passed、133既有历史根条件skip、0 failed，前后策略/敏感信息门通过。native completed=true、83,840 events，无overflow/unknown/reparse；根176,402,745 bytes，恢复区1,127,301,470 bytes。S3性能根新鲜，按256MiB上限后总量仍<2GiB，固定benchmark与1+5协议已冻结。
+
+S3唯一实际矩阵完成1次warm-up+5次测量，8场景的failure/warning均为空；三SQLite p95/p99仅触发合同明确的非阻断诊断，空间与dispatch ownership通过。performance根199文件/20,357,594 bytes，恢复区最终19,611文件/1,147,659,064 bytes，8000/8001及Python监听均为0。S3 1/1已用，不再追加性能运行。
+
+最小修复及V1–V4已通过；tool15随后137函数/532参数全部passed。R6的17选择器/42节点为42 passed、0 failed、0 not-run，但 `step6_native_watch_drain_timeout` 使native observation/inventory不完整。R6 1/1已用，不得重跑；下一项只可另行审定observer drain超时诊断，不能创建quality10。
+
+## 资源与边界
+
+全部历史根及tool16/R7/quality10/performance根继续保留。恢复区最终19,611文件/1,147,659,064 bytes<2GiB；全部observer和受控进程已退出，8000/8001及Python监听均为0。全部资源保留不删除，详细结果见evidence。
