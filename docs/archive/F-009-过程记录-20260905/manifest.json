@@ -1,0 +1,48 @@
+{
+  "created_at": "2026-09-05T14:00:11.716162+00:00",
+  "purpose": "F-009 historical process preservation; not current authority",
+  "retention": "manual review after F-009 archive; Codex does not delete",
+  "schema_version": 1,
+  "sensitive_scan": {
+    "findings": {
+      "aws_access_key": [],
+      "github_live_token": [],
+      "openai_live_key": [],
+      "private_key_header": []
+    },
+    "patterns": [
+      "private_key_header",
+      "openai_live_key",
+      "github_live_token",
+      "aws_access_key"
+    ]
+  },
+  "sources": {
+    "current-task.md": {
+      "bytes": 568152,
+      "sha256": "1930571ef4235a5bbb2602ad406a2db4e6d8383043dd04f5be15a9677000379f",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\current-task.md"
+    },
+    "evidence.md": {
+      "bytes": 36275701,
+      "sha256": "3b03fcef07d1784f41d39660935a908874995d8c8eee854bbb1490042ec85f74",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\evidence.md"
+    },
+    "implementation-plan.md": {
+      "bytes": 308819,
+      "sha256": "185375bf3aa32a9b4c6c98638d3edfea8c3dcbfa74ce5e9b014811ef2837a5a8",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\implementation-plan.md"
+    },
+    "progress.md": {
+      "bytes": 301223,
+      "sha256": "eaf6fa8fc2a4ff20a17b33342149578c20aaa40cca154c96a2357ca9ee514e16",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\progress.md"
+    },
+    "roadmap.md": {
+      "bytes": 243038,
+      "sha256": "f55c553aba73e3c99f5b9a91e0dc0b55bb2b916f22162335b79be00faf8c0830",
+      "source": "E:\\Agent\\comprehensive-cases\\15-cyber-town\\docs\\project-management\\roadmap.md"
+    }
+  },
+  "verification": "byte-identical sha256"
+}
