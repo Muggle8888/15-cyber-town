@@ -7,10 +7,18 @@
 - 候选路线：[`project-management/roadmap.md`](project-management/roadmap.md)
 - 当前任务：[`project-management/current-task.md`](project-management/current-task.md)
 - 当前计划：[`project-management/implementation-plan.md`](project-management/implementation-plan.md)
+- F-009 验收契约：[`project-management/F-009-验收契约.md`](project-management/F-009-验收契约.md)
 - 当前状态：[`project-management/progress.md`](project-management/progress.md)
 - 验收证据：[`project-management/evidence.md`](project-management/evidence.md)
 
-`F-001`—`F-007` 已分别通过 PR #1—#7 完成交付并归档。F-007 的四个功能/文档提交经 PR #7 的 GitHub Linux `quality` 通过后，功能 squash merge 提交为 `a049a94ad2104a4629a8e201399bb66592319fc5`；PR #8 随后完成文档归档。最终 fake-only 本地门禁为 `1319 passed`。任务卡与实施计划见 [`archive/task-cards/F-007-multi-npc-isolation.md`](archive/task-cards/F-007-multi-npc-isolation.md) 和 [`archive/task-cards/F-007-implementation-plan.md`](archive/task-cards/F-007-implementation-plan.md)。当前没有活动任务，等待用户从 roadmap 选择下一候选任务；未创建 `memory-bank/`，本 `docs/` 仍是唯一权威文档体系。
+当前阶段只从上面的任务入口读取；历史交付见 [`archive/task-cards/`](archive/task-cards/)。本 `docs/` 是唯一权威文档体系，不另建 `memory-bank/`。方法论接入和交接差异见 [`方法论同步说明`](project-management/方法论同步说明.md)。
+
+## 方法论与 worktree 接入
+
+- 通用规则来源：`E:\Vibe coding\vibe-methodology`，读取入口和专题路由由项目 `AGENTS.md` 指定；本文件不复制通用规则全文。
+- 正式文档：`E:\Agent\comprehensive-cases\15-cyber-town\docs`；F-009 代码：`E:\Agent\comprehensive-cases\15-cyber-town-f009`；既有 QA 证据：`E:\Agent\cyber-town-f009-step6-qa`。
+- 功能 worktree 的 `docs/` 是可能过期的检出副本，不用它覆盖正式任务状态；同步前核对未提交改动，不整目录复制。QA 与性能报告只证明各自记录的代码、工具及环境版本。
+- 更新前列出事实的唯一位置；更新后检查入口、当前任务、Git 与篇幅。详细失败、指纹和资源台账只保留一份证据，其他文件引用；方法论同步不代表旧历史文件已完成压缩归档。
 
 ## 权威文档与更新规则
 

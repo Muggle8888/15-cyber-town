@@ -1,5 +1,11 @@
 # 测试策略与质量门禁
 
+## 当前方法论接入
+
+测试分类、契约变更影响与 skip 说明遵循 `E:\Vibe coding\vibe-methodology\06-test-selection-matrix.md`；新增 QA runner 的就绪验证、受控失败诊断与性能指标适用性遵循同目录 `08-quality-gates.md`。本项目实际工具组合包含 Python、SQLite、Git/uv/Ruff 和 Godot；只验证当前执行会用到的组合。
+
+当前任务的用例清单、工具/代码版本、冻结性能契约、运行次数和资源授权以正式任务卡及证据索引为准。下文各 F 编号的既往结果属于相应历史切片，不能充当 F-009 当前验收；常规命令不解除当前 Step 的缓存隔离、fake-only 或失败停止条件。
+
 ## 测试分层
 
 | 领域 | 自动测试 | 人工/独立验证 |

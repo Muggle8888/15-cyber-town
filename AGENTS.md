@@ -3,7 +3,7 @@
 ## 项目定位与阶段
 
 - 等级：L（多模块、Agent、状态持久化、安全与可观测性）。
-- 当前阶段：`delivered_and_archived / F-007_multi_npc_isolation / awaiting_next_task_selection`。F-001—F-007 已分别通过 PR #1—#7 交付；F-007 的 PR #7 功能合并提交为 `a049a94ad2104a4629a8e201399bb66592319fc5`，任务卡与实施计划随后由 PR #8 归档。当前没有活动任务；进入下一候选任务卡或 Step 0 前须取得用户授权。仍不得读取 `.env`、调用真实模型或复用 F-005 验收资源。
+- 当前任务与阶段以 `docs/project-management/current-task.md` 的最新有效状态为准；本文件不重复保存任务完成数、测试数或阶段结论。进入未批准的任务或 Step 前须取得用户授权。仍不得读取 `.env`、调用真实模型或复用 F-005 验收资源。
 - 本项目是 Agent 工程学习项目，同时交付可运行、可交互、可验证的 AI NPC 小镇。
 
 ## 关键边界
@@ -16,6 +16,15 @@
 - 当前只做玩家与所选固定 NPC 的一对一对话，不引入 NPC 自主协作、批量生成或 WebSocket。
 
 ## 工作方式
+
+### 方法论入口
+
+- 本项目接入 `E:\Vibe coding\AGENTS.md`、`E:\Vibe coding\vibe-methodology\README.md` 与 `02-methodology-router.md`；按路由只读取本 Step 直接相关章节。`E:\Vibe coding\use.md` 负责生成阶段 Prompt，不是项目状态来源。
+- 文档更新执行 `04-document-governance.md` 的“每次更新的可检查要求”；QA 工具就绪和性能指标依据执行 `08-quality-gates.md`；测试分类与契约同步执行 `06-test-selection-matrix.md`。
+- 任务内修正额度执行 `03-task-card.md`，本地检查点执行 `07-git-delivery.md`，有限资源批次执行 `12-阶段复盘与归档.md`。这些可选方式必须在本任务中明确批准；仅同步方法论不授予修复、重跑、提交、跨 Step 或删除权限。
+- 既有“失败即停止”、精确根目录、fake-only 和未使用性能额度均按当前授权记录执行，不由通用规则重解释。通用规范通过引用维护，项目只记录本地差异和授权证据。
+
+### 项目执行
 
 1. 先读取本文件、`docs/README.md`、`docs/project-management/current-task.md` 和 roadmap；再读取当前任务必要的架构、测试与决策文档。
 2. roadmap 经用户确认后，用户选择一项；Codex 只起草一张任务卡，等待批准后才进入 Step 0。
@@ -41,3 +50,5 @@
 ## 文档权威
 
 `docs/README.md` 是文档地图；当前状态以 `current-task.md`、roadmap、progress 与 evidence 的职责划分为准。聊天记录不是项目事实来源。
+
+当前文档权威根为 `E:\Agent\comprehensive-cases\15-cyber-town\docs`；F-009 代码 worktree 为 `E:\Agent\comprehensive-cases\15-cyber-town-f009`。功能 worktree 中的旧文档副本不能作为当前阶段依据，进入新 Step 前核对两处入口和 Git 事实。方法论接入与已知文档差异见 `docs/project-management/方法论同步说明.md`。
