@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
+import subprocess
+import sys
 import traceback
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,6 +21,7 @@ from pydantic import SecretStr
 
 from cyber_town.api.app import create_app
 from cyber_town.api.composition import build_dialogue_service
+from cyber_town.application.control import NoOpSafetyControl
 from cyber_town.application.dialogue import DialogueFailureKind, DialogueUseCaseError
 from cyber_town.application.provider import (
     ProviderCompletion,
@@ -68,7 +72,11 @@ def test_offline_composition_resolves_its_database_inside_pytest_isolation(
     )
 
     with pytest.raises(RuntimeError, match="synthetic repository boundary"):
-        build_dialogue_service(enabled_settings(), provider=FakeProvider([]))
+        build_dialogue_service(
+            enabled_settings(),
+            provider=FakeProvider([]),
+            safety_control=NoOpSafetyControl(),
+        )
 
     assert captured_paths == [(tmp_path / "data" / "cyber-town.sqlite3", tmp_path / "data")]
 
@@ -93,7 +101,10 @@ class StubSdkClient:
 
 def sdk_response(
     *,
-    content: Any = "The east arcade stays quiet after midnight.",
+    content: Any = (
+        '{"reply":"The east arcade stays quiet after midnight.",'
+        '"relationship":{"category":"neutral","confidence":100}}'
+    ),
     finish_reason: Any = "stop",
     choice_count: int = 1,
     tool_calls: Any = None,
@@ -108,7 +119,9 @@ def sdk_response(
     )
     choice = SimpleNamespace(message=message, finish_reason=finish_reason)
     token_usage = (
-        SimpleNamespace(prompt_tokens=23, completion_tokens=11) if usage == "default" else usage
+        SimpleNamespace(prompt_tokens=23, completion_tokens=11, total_tokens=34)
+        if usage == "default"
+        else usage
     )
     return SimpleNamespace(choices=[choice] * choice_count, model=model, usage=token_usage)
 
@@ -210,6 +223,7 @@ def test_adapter_sends_frozen_non_thinking_non_streaming_request() -> None:
         provider="deepseek",
         model="deepseek-v4-flash",
         usage=ProviderUsage(prompt_tokens=23, completion_tokens=11),
+        relationship_suggestion={"category": "neutral", "confidence": 100},
     )
 
 
@@ -278,13 +292,11 @@ def test_adapter_extracts_only_an_exact_relationship_json_envelope() -> None:
     assert completion.relationship_suggestion == {"category": "friendly", "confidence": 80}
 
 
-def test_adapter_keeps_a_malformed_relationship_envelope_as_untrusted_text() -> None:
+def test_adapter_rejects_a_malformed_relationship_envelope() -> None:
     provider, _ = adapter(sdk_response(content='{"reply":"Nia acknowledges the visit."}'))
 
-    completion = asyncio.run(provider.complete(REQUEST))
-
-    assert completion.content == '{"reply":"Nia acknowledges the visit."}'
-    assert completion.relationship_suggestion is None
+    with pytest.raises(ProviderInvalidResponseError, match="invalid response"):
+        asyncio.run(provider.complete(REQUEST))
 
 
 def test_adapter_places_untrusted_long_term_facts_before_complete_short_term_history() -> None:
@@ -341,36 +353,31 @@ def test_adapter_rejects_tampered_history_role_before_sdk_call(injected_role: st
 
 
 @pytest.mark.parametrize(
-    ("response", "expected_choice_count", "expected_tool_calls", "expected_reasoning"),
+    "response",
     [
-        (sdk_response(choice_count=0), 0, False, False),
-        (sdk_response(choice_count=2), 2, False, False),
-        (sdk_response(tool_calls=[object()]), 1, True, False),
-        (sdk_response(reasoning_content="synthetic reasoning"), 1, False, True),
+        sdk_response(choice_count=0),
+        sdk_response(choice_count=2),
+        sdk_response(tool_calls=[object()]),
+        sdk_response(reasoning_content="synthetic reasoning"),
     ],
 )
-def test_adapter_preserves_untrusted_shape_for_application_validation(
+def test_adapter_rejects_untrusted_shape_before_application_validation(
     response: SimpleNamespace,
-    expected_choice_count: int,
-    expected_tool_calls: bool,
-    expected_reasoning: bool,
 ) -> None:
     provider, _ = adapter(response)
 
-    completion = asyncio.run(provider.complete(REQUEST))
-
-    assert completion.choice_count == expected_choice_count
-    assert completion.tool_calls_present is expected_tool_calls
-    assert completion.reasoning_content_present is expected_reasoning
+    with pytest.raises(ProviderInvalidResponseError, match="invalid response"):
+        asyncio.run(provider.complete(REQUEST))
 
 
 @pytest.mark.parametrize(
     "invalid_usage",
     [
         None,
-        SimpleNamespace(prompt_tokens=-1, completion_tokens=1),
-        SimpleNamespace(prompt_tokens="23", completion_tokens=1),
-        SimpleNamespace(prompt_tokens=23, completion_tokens=True),
+        SimpleNamespace(prompt_tokens=-1, completion_tokens=1, total_tokens=0),
+        SimpleNamespace(prompt_tokens="23", completion_tokens=1, total_tokens=24),
+        SimpleNamespace(prompt_tokens=23, completion_tokens=True, total_tokens=24),
+        SimpleNamespace(prompt_tokens=23, completion_tokens=11, total_tokens=35),
     ],
 )
 def test_missing_or_invalid_usage_fails_closed(invalid_usage: Any) -> None:
@@ -423,11 +430,144 @@ def test_sdk_connection_failure_is_classified_without_automatic_retry() -> None:
     assert len(client.completions.calls) == 1
 
 
+COMPOSITION_IMPORT_CHILD = r"""
+import asyncio
+import importlib.abc
+import json
+import sys
+from pathlib import Path
+
+case, temporary = sys.argv[1:]
+targets = ("cyber_town.infrastructure.llm.deepseek", "openai")
+assert all(name not in sys.modules for name in targets)
+attempts = []
+
+class BlockSdk(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in targets or fullname.startswith("openai."):
+            attempts.append(fullname)
+            raise ImportError("synthetic_sdk_import_blocked")
+        return None
+
+blocker = BlockSdk()
+sys.meta_path.insert(0, blocker)
+try:
+    from cyber_town.api import composition
+    from cyber_town.application.control import NoOpSafetyControl
+    from cyber_town.config import Settings
+    from cyber_town.infrastructure.llm.fake import FakeProvider
+
+    composition.PROJECT_ROOT = Path(temporary)
+    if case == "disabled":
+        assert composition.build_dialogue_service(Settings.model_validate({})) is None
+    else:
+        settings = Settings.model_validate({
+            "llm_provider": "deepseek", "llm_api_key": "synthetic-provider-value"
+        })
+        if case == "injected":
+            provider = FakeProvider([])
+            service = composition.build_dialogue_service(
+                settings, provider=provider, safety_control=NoOpSafetyControl()
+            )
+            assert service is not None
+            assert provider.call_count == 0
+            asyncio.run(service.aclose())
+        else:
+            assert case == "import_error"
+            try:
+                composition.build_dialogue_service(settings, safety_control=NoOpSafetyControl())
+            except ImportError as error:
+                assert str(error) == "synthetic_sdk_import_blocked"
+            else:
+                raise AssertionError("expected SDK import error was not propagated")
+    assert attempts == ([targets[0]] if case == "import_error" else [])
+    assert all(name not in sys.modules for name in targets)
+finally:
+    sys.meta_path.remove(blocker)
+assert blocker not in sys.meta_path
+print(json.dumps({"case": case, "sdk_loaded": False, "completed": True}))
+"""
+
+
+@pytest.mark.parametrize("case", ("disabled", "injected", "import_error"))
+def test_composition_sdk_import_contract_in_fresh_process(
+    case: str, tmp_path: Path, record_property: Callable[[str, object], None]
+) -> None:
+    import json
+
+    project = Path(__file__).resolve().parents[2]
+    completed = subprocess.run(
+        [sys.executable, "-B", "-c", COMPOSITION_IMPORT_CHILD, case, str(tmp_path)],
+        cwd=project,
+        capture_output=True,
+        timeout=30,
+    )
+    record_property("composition_case", case)
+    record_property("composition_child_exit_code", completed.returncode)
+    assert completed.returncode == 0
+    assert len(completed.stdout) <= 256
+    assert len(completed.stderr) <= 1024 * 1024
+    assert json.loads(completed.stdout) == {"case": case, "sdk_loaded": False, "completed": True}
+
+
+@pytest.mark.parametrize("case", ("control_key", "pricing", "api_key"))
+def test_composition_validates_before_sdk_construction(
+    case: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        deepseek,
+        "DeepSeekProvider",
+        lambda **_kwargs: pytest.fail("configuration rejection must precede SDK construction"),
+    )
+    settings = enabled_settings()
+    if case == "control_key":
+        with pytest.raises(
+            ValueError, match=r"^The enabled dialogue provider requires a safety control key\.$"
+        ):
+            build_dialogue_service(settings)
+    elif case == "pricing":
+        with pytest.raises(
+            ValueError,
+            match=r"^The enabled dialogue provider requires an approved pricing policy\.$",
+        ):
+            build_dialogue_service(settings, control_scope_key=b"synthetic-control-key")
+    else:
+        settings = settings.model_copy(update={"llm_api_key": None})
+        with pytest.raises(
+            ValueError, match=r"^The enabled dialogue provider requires a configured API key\.$"
+        ):
+            build_dialogue_service(settings, safety_control=NoOpSafetyControl())
+
+
+def test_composition_preserves_sdk_arguments_and_constructor_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = RuntimeError("synthetic SDK constructor failure")
+    captured: list[dict[str, object]] = []
+
+    def construct(**kwargs: object) -> None:
+        captured.append(kwargs)
+        raise expected
+
+    monkeypatch.setattr(deepseek, "DeepSeekProvider", construct)
+    settings = enabled_settings()
+    with pytest.raises(RuntimeError, match=r"^synthetic SDK constructor failure$") as failure:
+        build_dialogue_service(settings, safety_control=NoOpSafetyControl())
+    assert failure.value is expected
+    assert captured == [
+        {
+            "credential": settings.llm_api_key,
+            "base_url": settings.llm_base_url,
+            "timeout_seconds": settings.llm_timeout_seconds,
+        }
+    ]
+
+
 def test_disabled_composition_never_constructs_a_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "cyber_town.api.composition.DeepSeekProvider",
+        "cyber_town.infrastructure.llm.deepseek.DeepSeekProvider",
         lambda **_kwargs: pytest.fail("disabled provider attempted SDK construction"),
     )
 
@@ -446,7 +586,9 @@ def test_enabled_composition_accepts_only_an_injected_offline_test_provider() ->
         usage=ProviderUsage(prompt_tokens=23, completion_tokens=11),
     )
     provider = FakeProvider([completion])
-    service = build_dialogue_service(enabled_settings(), provider=provider)
+    service = build_dialogue_service(
+        enabled_settings(), provider=provider, safety_control=NoOpSafetyControl()
+    )
 
     assert service is not None
     result = asyncio.run(
@@ -461,7 +603,9 @@ def test_enabled_composition_accepts_only_an_injected_offline_test_provider() ->
 
 def test_invalid_sdk_completion_becomes_a_safe_application_failure() -> None:
     provider, _ = adapter(sdk_response(reasoning_content="synthetic hidden reasoning"))
-    service = build_dialogue_service(enabled_settings(), provider=provider)
+    service = build_dialogue_service(
+        enabled_settings(), provider=provider, safety_control=NoOpSafetyControl()
+    )
 
     assert service is not None
     with pytest.raises(DialogueUseCaseError) as captured:
@@ -478,7 +622,9 @@ def test_invalid_sdk_completion_becomes_a_safe_application_failure() -> None:
 
 def test_composed_offline_provider_is_reachable_through_the_dialogue_route() -> None:
     provider, sdk_client = adapter(sdk_response())
-    service = build_dialogue_service(enabled_settings(), provider=provider)
+    service = build_dialogue_service(
+        enabled_settings(), provider=provider, safety_control=NoOpSafetyControl()
+    )
 
     assert service is not None
     with TestClient(create_app(service)) as client:
@@ -498,7 +644,9 @@ def test_composed_offline_provider_is_reachable_through_the_dialogue_route() -> 
     [
         sdk_response(model="unapproved-response-model"),
         sdk_response(usage=None),
-        sdk_response(usage=SimpleNamespace(prompt_tokens=True, completion_tokens=1)),
+        sdk_response(
+            usage=SimpleNamespace(prompt_tokens=True, completion_tokens=1, total_tokens=2)
+        ),
         response_with_choices({"wrong": SimpleNamespace()}),
         response_with_choices({0: sdk_response().choices[0]}),
         response_with_choices(tuple(sdk_response().choices)),
@@ -508,7 +656,9 @@ def test_invalid_sdk_response_is_mapped_to_public_http_502(
     malformed_response: SimpleNamespace,
 ) -> None:
     provider, sdk_client = adapter(malformed_response)
-    service = build_dialogue_service(enabled_settings(), provider=provider)
+    service = build_dialogue_service(
+        enabled_settings(), provider=provider, safety_control=NoOpSafetyControl()
+    )
 
     assert service is not None
     with TestClient(create_app(service)) as client:
@@ -518,7 +668,8 @@ def test_invalid_sdk_response_is_mapped_to_public_http_502(
         )
 
     assert response.status_code == 502
-    assert response.json()["code"] == "provider_unavailable"
+    assert response.json()["code"] == "provider_invalid_response"
+    assert response.json()["retryable"] is False
     assert len(sdk_client.completions.calls) == 1
 
 
@@ -540,7 +691,13 @@ def test_sdk_debug_logging_never_emits_prompt_or_player_message(
                 "choices": [
                     {
                         "index": 0,
-                        "message": {"role": "assistant", "content": "Synthetic reply."},
+                        "message": {
+                            "role": "assistant",
+                            "content": (
+                                '{"reply":"Synthetic reply.",'
+                                '"relationship":{"category":"neutral","confidence":100}}'
+                            ),
+                        },
                         "finish_reason": "stop",
                     }
                 ],
@@ -579,7 +736,9 @@ def test_entrypoint_installs_enabled_dialogue_service_before_startup(
 ) -> None:
     api_main = importlib.import_module("cyber_town.api.__main__")
     provider = FakeProvider([])
-    service = build_dialogue_service(enabled_settings(), provider=provider)
+    service = build_dialogue_service(
+        enabled_settings(), provider=provider, safety_control=NoOpSafetyControl()
+    )
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     assert service is not None

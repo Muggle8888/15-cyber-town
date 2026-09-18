@@ -26,7 +26,7 @@ def valid_schema_fixtures() -> dict[str, dict[str, Any]]:
         "dialogue-request-v1.schema.json": {
             "request_id": REQUEST_ID,
             "player_id": "player-1",
-            "npc_id": "npc-1",
+            "npc_id": "neon_guide",
             "conversation_id": CONVERSATION_ID,
             "message": "你好",
         },
@@ -68,7 +68,30 @@ def test_request_schema_is_strict_and_keeps_message_budget() -> None:
     assert schema["additionalProperties"] is False
     assert schema["properties"]["message"]["minLength"] == 1
     assert schema["properties"]["message"]["maxLength"] == 1_000
-    assert schema["properties"]["message"]["pattern"] == r"\S"
+    assert schema["properties"]["message"]["pattern"] == (r"^(?:\S|\S[\s\S]{0,998}\S)$")
+    assert schema["properties"]["player_id"]["pattern"] == (
+        r"^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$"
+    )
+    assert schema["properties"]["npc_id"]["pattern"] == (
+        r"^(?:neon_guide|signal_archivist|night_courier)$"
+    )
+    assert schema["properties"]["request_id"]["pattern"] == (
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+
+
+def test_error_schema_exports_locked_step1_and_future_control_codes() -> None:
+    schema = json.loads(render_schemas()["api-error-v1.schema.json"])
+    codes = set(schema["$defs"]["ApiErrorCode"]["enum"])
+
+    assert {
+        "payload_too_large",
+        "rate_limited",
+        "budget_exhausted",
+        "provider_invalid_response",
+        "circuit_open",
+        "control_unavailable",
+    } <= codes
 
 
 def test_exported_schemas_are_valid_draft_2020_12() -> None:
@@ -85,6 +108,9 @@ def test_exported_schemas_accept_valid_fixtures() -> None:
     ("filename", "field", "value"),
     [
         ("dialogue-request-v1.schema.json", "message", "   "),
+        ("dialogue-request-v1.schema.json", "message", " 你好 "),
+        ("dialogue-request-v1.schema.json", "npc_id", "npc-1"),
+        ("dialogue-request-v1.schema.json", "npc_id", "NEON_GUIDE"),
         ("dialogue-request-v1.schema.json", "message", " " + ("x" * 1_000) + " "),
         ("dialogue-request-v1.schema.json", "request_id", "not-a-uuid"),
         (

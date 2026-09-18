@@ -296,7 +296,7 @@ def test_update_keeps_memory_identity_and_increments_version(
 
 @pytest.mark.parametrize(
     ("player_id", "npc_id"),
-    [("another_player", "neon_guide"), ("local_player", "another_npc")],
+    [("another_player", "neon_guide"), ("local_player", "signal_archivist")],
 )
 def test_player_and_npc_scopes_are_fully_isolated(
     player_id: str,

@@ -13,6 +13,7 @@ from pydantic import SecretStr
 
 from cyber_town.api.app import create_app
 from cyber_town.api.composition import build_dialogue_service
+from cyber_town.application.control import NoOpSafetyControl
 from cyber_town.application.dialogue import (
     DialogueExecutionConfig,
     DialogueFailureKind,
@@ -117,6 +118,7 @@ def composed_service(
         provider=provider,
         long_term_repository=memory,
         relationship_repository=relationship,
+        safety_control=NoOpSafetyControl(),
     )
     assert service is not None
     return service, memory, relationship
@@ -232,7 +234,8 @@ def test_changing_any_short_term_scope_dimension_starts_with_empty_history(
 def test_unknown_npc_fails_before_provider_or_persistent_scope_writes(tmp_path: Path) -> None:
     provider = FakeProvider([])
     service, memory, relationship = composed_service(tmp_path, provider)
-    unknown = request(600, npc_id="unapproved_npc")
+    unknown = request(600, npc_id="neon_guide")
+    object.__setattr__(unknown, "npc_id", "unapproved_npc")
 
     with pytest.raises(DialogueUseCaseError) as raised:
         run(service.execute(unknown, trace_id=UUID(int=601)))

@@ -8,6 +8,10 @@ from typing import Literal, Protocol
 
 from cyber_town.domain.long_term_memory import validate_long_term_fact
 
+MAX_PROVIDER_PROMPT_TOKENS = 32_768
+MAX_PROVIDER_COMPLETION_TOKENS = 256
+MAX_PROVIDER_TOTAL_TOKENS = 33_024
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderUsage:
@@ -17,8 +21,14 @@ class ProviderUsage:
     completion_tokens: int = 0
 
     def __post_init__(self) -> None:
-        if self.prompt_tokens < 0 or self.completion_tokens < 0:
-            raise ValueError("Provider token usage cannot be negative")
+        if type(self.prompt_tokens) is not int or type(self.completion_tokens) is not int:
+            raise TypeError("Provider token usage must use strict integers")
+        if not 0 <= self.prompt_tokens <= MAX_PROVIDER_PROMPT_TOKENS:
+            raise ValueError("Provider prompt token usage is outside the approved range")
+        if not 0 <= self.completion_tokens <= MAX_PROVIDER_COMPLETION_TOKENS:
+            raise ValueError("Provider completion token usage is outside the approved range")
+        if self.total_tokens > MAX_PROVIDER_TOTAL_TOKENS:
+            raise ValueError("Provider total token usage is outside the approved range")
 
     @property
     def total_tokens(self) -> int:

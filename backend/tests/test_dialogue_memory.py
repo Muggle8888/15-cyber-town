@@ -252,10 +252,11 @@ def test_different_npc_scope_cannot_read_existing_nia_history() -> None:
 
     run(service.execute(request(1), trace_id=TRACE_ID))
     with pytest.raises(DialogueUseCaseError):
-        run(service.execute(request(2, npc_id="another_npc"), trace_id=TRACE_ID))
+        run(service.execute(request(2, npc_id="signal_archivist"), trace_id=TRACE_ID))
 
+    signal_scope = ConversationScope("local_player", "signal_archivist", CONVERSATION_ID)
     assert provider.call_count == 1
-    assert store.history(ConversationScope("local_player", "another_npc", CONVERSATION_ID)) == ()
+    assert store.history(signal_scope) == ()
 
 
 def test_seventh_success_retains_six_complete_turns() -> None:

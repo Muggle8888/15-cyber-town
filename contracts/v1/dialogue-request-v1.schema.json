@@ -8,28 +8,28 @@
       "format": "uuid",
       "maxLength": 36,
       "minLength": 36,
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "title": "Conversation Id",
       "type": "string"
     },
     "message": {
       "maxLength": 1000,
       "minLength": 1,
-      "pattern": "\\S",
+      "pattern": "^(?:\\S|\\S[\\s\\S]{0,998}\\S)$",
       "title": "Message",
       "type": "string"
     },
     "npc_id": {
       "maxLength": 64,
       "minLength": 1,
-      "pattern": "\\S",
+      "pattern": "^(?:neon_guide|signal_archivist|night_courier)$",
       "title": "Npc Id",
       "type": "string"
     },
     "player_id": {
       "maxLength": 64,
       "minLength": 1,
-      "pattern": "\\S",
+      "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$",
       "title": "Player Id",
       "type": "string"
     },
@@ -37,7 +37,7 @@
       "format": "uuid",
       "maxLength": 36,
       "minLength": 36,
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "title": "Request Id",
       "type": "string"
     }

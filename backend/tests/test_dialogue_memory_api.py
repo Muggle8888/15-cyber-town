@@ -176,7 +176,8 @@ async def test_http_unknown_npc_never_reads_other_npc_history() -> None:
         )
 
     assert first.status_code == 200
-    assert second.status_code == 404
+    assert second.status_code == 422
+    assert second.json()["code"] == "validation_error"
     assert provider.call_count == 1
 
 
@@ -200,17 +201,18 @@ async def test_http_seven_turns_retain_only_six_complete_history_pairs() -> None
 
 
 @pytest.mark.parametrize(
-    ("failure", "status_code"),
+    ("failure", "status_code", "retryable"),
     [
-        (ProviderUnavailableError("private unavailable"), 503),
-        (ProviderTimeoutError("private timeout"), 504),
-        (completion(None), 502),
+        (ProviderUnavailableError("private unavailable"), 503, True),
+        (ProviderTimeoutError("private timeout"), 504, True),
+        (completion(None), 502, False),
     ],
 )
 @pytest.mark.anyio
 async def test_http_failure_retry_preserves_prior_history_without_ghost_turn(
     failure: ProviderCompletion | Exception,
     status_code: int,
+    retryable: bool,
 ) -> None:
     provider = FakeProvider([completion("First reply"), failure, completion("Recovered reply")])
     transport = ASGITransport(app=create_app(make_service(provider)))
@@ -223,7 +225,7 @@ async def test_http_failure_retry_preserves_prior_history_without_ghost_turn(
 
     assert first.status_code == 200
     assert failed.status_code == status_code
-    assert failed.json()["retryable"] is True
+    assert failed.json()["retryable"] is retryable
     assert recovered.status_code == 200
     assert provider.requests[1].history_messages == provider.requests[2].history_messages
     assert len(provider.requests[2].history_messages) == 2

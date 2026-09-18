@@ -129,9 +129,11 @@ def test_success_builds_frozen_prompt_and_strict_response() -> None:
 def test_unknown_npc_fails_without_calling_provider() -> None:
     provider = FakeProvider([completion()])
     service = make_service(provider)
+    request = make_request()
+    object.__setattr__(request, "npc_id", "unknown_npc")
 
     with pytest.raises(DialogueUseCaseError) as captured:
-        run(service.execute(make_request(npc_id="unknown_npc"), trace_id=TRACE_ID))
+        run(service.execute(request, trace_id=TRACE_ID))
 
     assert captured.value.kind is DialogueFailureKind.NPC_NOT_FOUND
     assert captured.value.code is ApiErrorCode.NPC_NOT_FOUND
@@ -168,8 +170,8 @@ def test_invalid_provider_outputs_fail_closed(invalid_completion: ProviderComple
         run(service.execute(make_request(), trace_id=TRACE_ID))
 
     assert captured.value.kind is DialogueFailureKind.PROVIDER_INVALID_RESPONSE
-    assert captured.value.code is ApiErrorCode.PROVIDER_UNAVAILABLE
-    assert captured.value.retryable is True
+    assert captured.value.code is ApiErrorCode.PROVIDER_INVALID_RESPONSE
+    assert captured.value.retryable is False
     assert "x" * 100 not in captured.value.public_message
 
 

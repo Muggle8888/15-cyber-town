@@ -9,6 +9,13 @@ from uuid import UUID, uuid4
 import pytest
 
 import cyber_town.infrastructure.observability.sqlite_observability as sqlite_observability
+from cyber_town.application.budget import (
+    BUDGET_POLICY_VERSION,
+    SYNTHETIC_PRICING_VERSION,
+    BudgetEventKind,
+    BudgetScopeTags,
+    SafetyCostMetadata,
+)
 from cyber_town.application.observability import (
     OBSERVABILITY_SCHEMA_VERSION,
     AttemptKind,
@@ -33,6 +40,7 @@ from cyber_town.application.observability_evaluation import (
     evaluate_observability,
     load_evaluation_fixture,
 )
+from cyber_town.application.safety import BudgetOutcome
 from cyber_town.infrastructure.observability.sqlite_observability import (
     OBSERVABILITY_MIGRATIONS,
     ObservabilityConflictError,
@@ -144,15 +152,20 @@ def test_migration_is_independent_strict_and_versioned(tmp_path: Path) -> None:
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-        migration = connection.execute(
-            "SELECT version, name, checksum FROM schema_migrations"
-        ).fetchone()
+        migrations = connection.execute(
+            "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
+        ).fetchall()
         strict_tables = {
             str(row[1]) for row in connection.execute("PRAGMA table_list") if int(row[5]) == 1
         }
-        assert connection.execute("PRAGMA user_version").fetchone() == (1,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (4,)
 
-    assert OBSERVABILITY_MIGRATIONS == ((1, "0001_observability.sql"),)
+    assert OBSERVABILITY_MIGRATIONS == (
+        (1, "0001_observability.sql"),
+        (2, "0002_safety_cost_performance.sql"),
+        (3, "0003_retry_circuit_breaker.sql"),
+        (4, "0004_compact_event_storage.sql"),
+    )
     assert {
         "trace_runs",
         "trace_stage_events",
@@ -160,9 +173,11 @@ def test_migration_is_independent_strict_and_versioned(tmp_path: Path) -> None:
         "evaluation_runs",
         "evaluation_cases",
         "replay_index",
+        "safety_cost_events",
+        "retry_breaker_events",
     } <= tables
-    assert migration is not None and migration[:2] == (1, "0001_observability.sql")
-    assert len(str(migration[2])) == 64
+    assert [row[:2] for row in migrations] == list(OBSERVABILITY_MIGRATIONS)
+    assert all(len(str(row[2])) == 64 for row in migrations)
     assert {
         "trace_runs",
         "trace_stage_events",
@@ -170,6 +185,7 @@ def test_migration_is_independent_strict_and_versioned(tmp_path: Path) -> None:
         "evaluation_runs",
         "evaluation_cases",
         "replay_index",
+        "safety_cost_events",
     } <= strict_tables
 
 
@@ -182,6 +198,51 @@ def test_initialize_is_repeatable_and_rejects_migration_drift(tmp_path: Path) ->
 
     with pytest.raises(ObservabilityStorageError, match="schema"):
         repository.initialize()
+
+
+def test_safety_cost_0002_is_metadata_only_and_idempotent(tmp_path: Path) -> None:
+    repository = _repository(tmp_path)
+    trace = _trace()
+    repository.save_trace(trace, _stages(trace))
+    assert trace.scope_tags is not None
+    assert trace.execution_id is not None
+    record = SafetyCostMetadata(
+        trace_id=trace.trace_id,
+        execution_id=trace.execution_id,
+        attempt_number=1,
+        event_kind=BudgetEventKind.SETTLEMENT,
+        outcome=BudgetOutcome.SETTLED,
+        policy_version=BUDGET_POLICY_VERSION,
+        pricing_version=SYNTHETIC_PRICING_VERSION,
+        provider_kind=ProviderKind.DEEPSEEK,
+        scope_tags=BudgetScopeTags(
+            player_scope_tag=trace.scope_tags.player_scope_tag,
+            npc_scope_tag=trace.scope_tags.npc_scope_tag,
+            player_npc_scope_tag="a" * 64,
+        ),
+        reserved_micro_usd=2_000,
+        actual_cost_micro_usd=2,
+        prompt_tokens=1_000,
+        completion_tokens=250,
+        conservative=False,
+        recorded_at_utc=NOW,
+    )
+
+    repository.record_safety_cost(record)
+    repository.record_safety_cost(record)
+
+    with sqlite3.connect(repository.database_path) as connection:
+        row = connection.execute(
+            "SELECT execution_id, event_kind, actual_cost_micro_usd, prompt_tokens, "
+            "completion_tokens FROM safety_cost_events"
+        ).fetchone()
+    from cyber_town.infrastructure.observability.storage_codec import decode_value
+
+    assert (
+        decode_value("safety_cost_events", "execution_id", row[0]),
+        decode_value("safety_cost_events", "event_kind", row[1]),
+        *row[2:],
+    ) == (str(trace.execution_id), "settlement", 2, 1_000, 250)
 
 
 def test_repository_rejects_paths_outside_root_and_reparse_boundaries(
@@ -218,9 +279,15 @@ def test_trace_stages_and_execution_link_commit_atomically(tmp_path: Path) -> No
         assert connection.execute("SELECT COUNT(*) FROM trace_runs").fetchone() == (1,)
         assert connection.execute("SELECT COUNT(*) FROM trace_stage_events").fetchone() == (14,)
         assert connection.execute("SELECT COUNT(*) FROM execution_links").fetchone() == (1,)
-        assert connection.execute(
+        link = connection.execute(
             "SELECT link_kind, provider_dispatch_count FROM execution_links"
-        ).fetchone() == ("dispatch_owner", 1)
+        ).fetchone()
+        from cyber_town.infrastructure.observability.storage_codec import decode_value
+
+        assert (decode_value("execution_links", "link_kind", link[0]), link[1]) == (
+            "dispatch_owner",
+            1,
+        )
 
 
 def test_duplicate_trace_rolls_back_children_and_reports_safe_conflict(tmp_path: Path) -> None:

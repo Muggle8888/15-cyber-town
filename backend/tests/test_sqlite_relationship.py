@@ -160,9 +160,7 @@ def test_relationship_repository_rejects_state_that_disagrees_with_audit(tmp_pat
     repository = make_repository(tmp_path)
     apply_supportive(repository)
     with sqlite3.connect(repository.database_path) as connection:
-        connection.execute(
-            "UPDATE relationship_states SET score = 23, stage = 'acquaintance'"
-        )
+        connection.execute("UPDATE relationship_states SET score = 23, stage = 'acquaintance'")
 
     with pytest.raises(RelationshipStorageError, match="state does not match"):
         repository.get_state(RelationshipScope("local_player", "neon_guide"))

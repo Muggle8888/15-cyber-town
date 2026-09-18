@@ -53,9 +53,7 @@ async def test_health_rejects_non_get_methods(client: AsyncClient, method: str) 
 
 def test_health_route_has_no_request_body_query_or_dependencies() -> None:
     route = next(
-        route
-        for route in app.routes
-        if isinstance(route, APIRoute) and route.path == HEALTH_PATH
+        route for route in app.routes if isinstance(route, APIRoute) and route.path == HEALTH_PATH
     )
 
     assert route.methods == {"GET"}

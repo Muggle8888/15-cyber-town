@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from enum import StrEnum
 from typing import Annotated
 from uuid import UUID
@@ -15,9 +16,10 @@ from pydantic import (
 )
 
 CANONICAL_UUID_PATTERN = (
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
-    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}$"
 )
+DIALOGUE_MESSAGE_SCHEMA_PATTERN = r"^(?:\S|\S[\s\S]{0,998}\S)$"
 CanonicalUUID = Annotated[
     UUID,
     WithJsonSchema(
@@ -46,8 +48,24 @@ def _require_canonical_uuid(value: object) -> object:
         parsed = UUID(value)
     except ValueError:
         return value
-    if value.lower() != str(parsed):
+    if value != str(parsed):
         raise ValueError("UUID must use canonical 8-4-4-4-12 representation")
+    return value
+
+
+def _require_safe_dialogue_message(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    if value != value.strip():
+        raise ValueError("Dialogue message cannot contain surrounding whitespace")
+    if len(value.encode("utf-8")) > 4_000:
+        raise ValueError("Dialogue message exceeds the UTF-8 byte budget")
+    for character in value:
+        category = unicodedata.category(character)
+        if character in {"\n", "\t"}:
+            continue
+        if character == "\r" or category in {"Cc", "Cf", "Cs"}:
+            raise ValueError("Dialogue message contains an unsafe control character")
     return value
 
 
@@ -61,23 +79,40 @@ ScopedIdentifier = Annotated[
         pattern=r"\S",
     ),
 ]
+PlayerIdentifier = Annotated[
+    str,
+    StringConstraints(
+        strict=True,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$",
+    ),
+]
 RequestNpcIdentifier = Annotated[
     str,
     StringConstraints(
         strict=True,
         min_length=1,
         max_length=64,
-        pattern=r"\S",
+        pattern=r"^(?:neon_guide|signal_archivist|night_courier)$",
     ),
 ]
 DialogueMessage = Annotated[
     str,
     StringConstraints(
         strict=True,
-        strip_whitespace=True,
         min_length=1,
         max_length=1_000,
         pattern=r"\S",
+    ),
+    WithJsonSchema(
+        {
+            "maxLength": 1_000,
+            "minLength": 1,
+            "pattern": DIALOGUE_MESSAGE_SCHEMA_PATTERN,
+            "type": "string",
+        },
+        mode="validation",
     ),
 ]
 DialogueReply = Annotated[
@@ -129,10 +164,16 @@ class ApiErrorCode(StrEnum):
     """Stable public errors; internal exception details are never exposed."""
 
     VALIDATION_ERROR = "validation_error"
+    PAYLOAD_TOO_LARGE = "payload_too_large"
     NPC_NOT_FOUND = "npc_not_found"
     CONFLICT = "conflict"
+    RATE_LIMITED = "rate_limited"
+    BUDGET_EXHAUSTED = "budget_exhausted"
     PROVIDER_TIMEOUT = "provider_timeout"
     PROVIDER_UNAVAILABLE = "provider_unavailable"
+    PROVIDER_INVALID_RESPONSE = "provider_invalid_response"
+    CIRCUIT_OPEN = "circuit_open"
+    CONTROL_UNAVAILABLE = "control_unavailable"
     UNSAFE_CONTENT = "unsafe_content"
     INTERNAL_ERROR = "internal_error"
 
@@ -141,7 +182,7 @@ class DialogueRequestV1(StrictContract):
     """A single idempotent player-to-NPC dialogue command."""
 
     request_id: CanonicalUUID
-    player_id: ScopedIdentifier
+    player_id: PlayerIdentifier
     npc_id: RequestNpcIdentifier
     conversation_id: CanonicalUUID
     message: DialogueMessage
@@ -166,7 +207,7 @@ class DialogueRequestV1(StrictContract):
     @field_validator("message", mode="before")
     @classmethod
     def require_raw_message_budget(cls, value: object) -> object:
-        return _require_raw_string_length(value, 1_000)
+        return _require_safe_dialogue_message(_require_raw_string_length(value, 1_000))
 
 
 class DialogueResponseV1(StrictContract):

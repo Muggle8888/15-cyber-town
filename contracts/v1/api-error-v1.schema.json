@@ -4,10 +4,16 @@
       "description": "Stable public errors; internal exception details are never exposed.",
       "enum": [
         "validation_error",
+        "payload_too_large",
         "npc_not_found",
         "conflict",
+        "rate_limited",
+        "budget_exhausted",
         "provider_timeout",
         "provider_unavailable",
+        "provider_invalid_response",
+        "circuit_open",
+        "control_unavailable",
         "unsafe_content",
         "internal_error"
       ],
@@ -38,7 +44,7 @@
       "format": "uuid",
       "maxLength": 36,
       "minLength": 36,
-      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
       "title": "Trace Id",
       "type": "string"
     }
