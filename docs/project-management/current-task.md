@@ -7,19 +7,19 @@
 | 判断项 | 当前唯一口径 |
 | --- | --- |
 | 当前任务卡 | `F-009 安全、成本与性能优化` |
-| 路线图任务状态 | `ACTIVE`；Step 6 已完成，Step 7 等待单独授权 |
-| 当前所在步骤 | `Step 6 完成 / 等待 Step 7 授权` |
-| 当前业务闭环 | QA工具冻结、最终quality10九阶段exit0、固定性能1+5全部门禁通过；完整pytest 2,942 passed/133既有契约skip/0 failed |
+| 路线图任务状态 | `ACTIVE`；Step 7 交付分支已推送，等待 PR 授权 |
+| 当前所在步骤 | `Step 7 / Git 分支交付完成，等待 PR 授权` |
+| 当前业务闭环 | Step 6 全部门禁通过；119个批准路径已提交并推送到 `origin/feat/f-009-delivery` |
 | 当前执行状态 | `COMPLETE` |
-| 已完成到哪里 | tool16、R7、quality10与S3性能均按唯一额度通过，代码/端口/进程无漂移；`step6_complete=true` |
-| 精确阻塞点 | 无 Step 6 阻塞；Step 7 尚未授权，不得自动进入 |
-| 本阶段不执行 | 产品代码、阈值、skip、追加quality/性能、真实外部服务、Git交付和Step 7 |
-| 唯一最小下一项 | 等待用户单独批准 Step 7 交付收口范围 |
-| 授权状态 | `CONSUMED`；恢复链全部已授权额度均已使用，Step 7 不在本次授权内 |
-| 额度 | 修复、tool16、R7、quality10、S3固定性能均已用；不得追加或换根重置 |
+| 已完成到哪里 | 功能、治理、状态与归档已形成主题提交；远端分支SHA与本地一致，ahead/behind=`0/0` |
+| 精确阻塞点 | 无本地交付阻塞；PR、CI、合并和main同步尚未授权 |
+| 本阶段不执行 | 追加代码/测试、PR、合并、修改main、删除资源、部署或发布 |
+| 唯一最小下一项 | 等待用户决定是否授权以 `main` 为base创建PR并观察CI |
+| 授权状态 | `CONSUMED`；本次只到分支推送，未授权PR或合并 |
+| 额度 | Step 6全部额度已用；Step 7限定提交与同一远端分支推送已用，不得扩展目标 |
 | 环境与副作用 | `local + synthetic + fake-only`；当前不授权网络、服务、真实数据、费用或外部调用 |
-| 当前证据 | [evidence.md：2026-09-18 Step 6 完成证据](evidence.md#2026-09-18-step-6-完成证据) |
-| 更新时间 | `2026-09-18 17:34 +08:00` |
+| 当前证据 | [evidence.md：2026-09-18 Step 7 Git分支交付](evidence.md#2026-09-18-step-7-git分支交付) |
+| 更新时间 | `2026-09-18 18:06 +08:00` |
 
 ## 当前执行合同
 
@@ -27,27 +27,30 @@
 task_id: F-009
 task_name: 安全、成本与性能优化
 roadmap_status: ACTIVE
-step: Step 6 complete / awaiting Step 7 authorization
+step: Step 7 delivery branch pushed / awaiting PR authorization
 execution_status: COMPLETE
-current_goal: Step 6全部门禁已通过并完成证据收口；禁止自动进入Step 7
-completed_checkpoint: tool16、R7、native-quality-10与固定性能1+5全部通过；step6_complete=true
-blocked_at: none；Step 7是未授权的新阶段，不是Step 6阻塞
-next_action: 等待用户单独批准Step 7交付收口范围
-next_action_type: AUTHORIZE_NEXT_STAGE
+current_goal: 将冻结F-009成果按精确范围提交并只推送独立交付分支
+completed_checkpoint: origin/feat/f-009-delivery已创建并核对远端SHA；119个批准路径，敏感扫描0，ahead/behind 0/0
+blocked_at: none；PR、CI与合并是未授权的新阶段
+next_action: 等待用户决定是否授权创建以main为base的PR并观察CI
+next_action_type: AUTHORIZE_PR
 authorization:
   state: CONSUMED
-  basis: 用户对既定恢复链的总授权已覆盖并完成tool16、R7、quality10及S3；不包含Step 7
+  basis: 用户明确批准fetch、限定提交和仅推送origin/feat/f-009-delivery；不包含PR、合并或main修改
 limits:
   repair: R7合同1/1已用；全部历史修复额度保持已用且不重置
   run: tool16 1/1已用；R7 1/1已用；quality10 1/1已用；S3性能1/1已用；不得追加或换根重置
+  git_delivery: fetch 1次；功能/治理/状态归档提交各1次；状态收口提交1次；仅同一交付分支推送
   external_calls: 0
 environment: local + synthetic + fake-only
 step6_complete: true
-awaiting_step_7_authorization: true
-decision_needed: 用户是否批准一个独立的Step 7交付收口合同
+awaiting_step_7_authorization: false
+step7_branch_pushed: true
+awaiting_pr_authorization: true
+decision_needed: 用户是否批准创建以main为base的PR并观察CI；不自动授权合并
 proposed_next_scope_authorized: false
-evidence: docs/project-management/evidence.md#2026-09-18-step-6-完成证据
-updated_at: 2026-09-18 17:34 +08:00
+evidence: docs/project-management/evidence.md#2026-09-18-step-7-git分支交付
+updated_at: 2026-09-18 18:06 +08:00
 ```
 
 ## R7 observer drain 最小恢复合同

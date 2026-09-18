@@ -2,15 +2,15 @@
 
 更新时间：2026-09-18
 
-## 当前：Step 6 完成，等待 Step 7 授权
+## 当前：Step 7 分支交付完成，等待 PR 授权
 
-QA observer恢复、V1–V4、tool16/R7、最终quality10及同一冻结版本的固定gate-boundary matrix均已通过。恢复链授权与所有运行额度已消费，当前不得自动进入Step 7。
+QA observer恢复、V1–V4、tool16/R7、最终quality10及同一冻结版本的固定gate-boundary matrix均已通过。Step 7将100个功能文件与19个正式文档按主题提交，并只推送到 `origin/feat/f-009-delivery`；远端核对完成。
 
 只改三个QA文件：等待marker时不再反复做完整容量扫描，仍保留10秒、observer error和确认后的完整check；新增确定性慢check回归；活动根轮换到tool16/R7并归档tool15/R6。不得修改产品、超时、阈值、skip、安全边界、quality命令或业务服务。
 
 固定性能复用 `scripts/f009_step5_benchmark.py` 的 `gate_boundary_matrix_manifest` 与 `_run_gate_boundary_matrix`，通过QA的 `space_performance_root_binding` 仅在作用域内绑定新鲜performance根并恢复原配置。协议为统一warm-up一次+5测量，8类场景及三SQLite诊断，失败不改阈值、不重跑。
 
-完成检查点：quality10九阶段全部exit0，完整pytest 2,942 passed/133既有契约skip/0 failed；S3完成1次warm-up+5次测量，8场景全部阻断门禁通过，三SQLite延迟仅有合同允许的非阻断诊断。quality10与S3均1/1已用，不得追加。`step6_complete=true`，唯一下一项是等待用户批准独立的Step 7交付收口合同。
+完成检查点：quality10九阶段全部exit0，完整pytest 2,942 passed/133既有契约skip/0 failed；S3固定1+5全部阻断门禁通过。交付分支119路径、敏感扫描0、五个冻结哈希一致，远端ahead/behind=`0/0`；功能worktree专用 `AGENTS.md` 原样保留且未提交。下一项只等待PR授权，不自动创建PR、运行CI、合并、同步main或删除资源。
 
 ## 上轮：tool11完整工具就绪补齐已完成（不恢复quality）
 
