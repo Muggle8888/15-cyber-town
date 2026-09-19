@@ -1,10 +1,18 @@
 # F-009 当前证据索引
 
-更新时间：2026-09-18
+更新时间：2026-09-19
 
 ## 当前结论
 
-B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7限定分支与PR #13已完成归档包装、跨平台CI修复及首轮绿色Quality门禁；当前任务卡与实施计划已准备随同一PR归档。最终归档HEAD必须再次CI全绿后才可合并。
+B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7最终PR HEAD CI、PR #13合并及合并后`main` CI均已通过，任务卡与实施计划归档已经生效。当前无活动任务，F-009授权已消费完毕。
+
+## 2026-09-19 PR #13合并、本地main同步与收尾证据
+
+GitHub仓库规范地址为 `https://github.com/Muggle8888/15-cyber-town.git`。PR [#13](https://github.com/Muggle8888/15-cyber-town/pull/13) 的最终HEAD为 `a0911b95b657f3fb557d2a422c15836e14fcb9fc`；最终PR Quality run [`35343077888`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35343077888) 为completed/success。PR于2026-09-18 20:10:43 +08:00合并，`main`合并提交为 `75171492070bddddffef58cc4f0fe9552d40bb77`；PR最终HEAD与该squash提交的Git tree一致。
+
+合并后`main`触发的Quality run [`35343297890`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35343297890) 为completed/success，证明远端主分支已通过交付后的完整CI门禁。正式仓origin已校准到规范地址，执行`git fetch origin`后，本地`main`从 `1a4fc2cdf142b00f823bebf9b2abe6e74ba23ab3`安全快进到 `75171492070bddddffef58cc4f0fe9552d40bb77`，随后从该提交创建本地文档收尾分支 `docs/f-009-post-merge-closeout`。
+
+本地整理前正式仓工作区干净。功能worktree `E:/Agent/comprehensive-cases/15-cyber-town-f009`继续保留，既有未暂存`AGENTS.md`修改未被覆盖；Step 6证据根 `E:/Agent/cyber-town-f009-step6-qa/recovery-20260905-01`继续保留。8000/8001监听均为0。本次收尾未运行测试、quality、性能、真实Provider或业务服务，未删除worktree、分支、证据或其他资源，也未新建PR或向远端推送。
 
 ## 2026-09-18 Step 7交付CI与归档准备证据
 
