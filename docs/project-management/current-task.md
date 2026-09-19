@@ -19,7 +19,8 @@
 | 额度 | Step 6、Step 7修复、运行、CI与合并额度均按证据消费；不追加运行 |
 | 环境与副作用 | 本地`main`已快进同步到合并提交；无业务服务、真实Provider调用或生产变更 |
 | 当前证据 | [evidence.md：PR #13合并、本地main同步与收尾证据](evidence.md#2026-09-19-pr-13合并本地main同步与收尾证据) |
-| 更新时间 | `2026-09-19 14:53 +08:00` |
+| 遗留资源处置 | [已完成分类](F-009-本地资源处置清单.md)；正式仓与Git归档保留，三个本地路径仅为有条件可删除，本轮均未删除 |
+| 更新时间 | `2026-09-19 15:13 +08:00` |
 
 ## 当前执行合同
 
@@ -72,12 +73,25 @@ local:
   closeout_branch: docs/f-009-post-merge-closeout
   feature_worktree: retained; existing AGENTS.md change preserved
   evidence_root: retained at E:/Agent/cyber-town-f009-step6-qa/recovery-20260905-01
+resource_disposition:
+  status: DOCUMENTED_NOT_EXECUTED
+  manifest: docs/project-management/F-009-本地资源处置清单.md
+  keep:
+    - E:/Agent/comprehensive-cases/15-cyber-town
+    - docs/project-management
+    - docs/archive/task-cards
+    - docs/archive/F-009-过程记录-20260905
+  conditional_delete:
+    - E:/Agent/comprehensive-cases/15-cyber-town-f009
+    - E:/Agent/cyber-town-f009-step5-tests
+    - E:/Agent/cyber-town-f009-step6-qa
+  deletion_authorized: false
 decision_needed: null
 proposed_next_scope_authorized: false
 evidence: docs/project-management/evidence.md#2026-09-19-pr-13合并本地main同步与收尾证据
-updated_at: 2026-09-19 14:53 +08:00
+updated_at: 2026-09-19 15:13 +08:00
 ```
 
 ## 归档说明
 
-F-009完整活动任务卡与实施计划已保存在 `docs/archive/task-cards/`，历史过程、额度、失败与证据均未删除。PR #13已合并，归档已经生效。功能worktree、远程功能分支与本地证据继续保留；后续开发或资源清理都必须建立新的、独立授权的任务。
+F-009完整活动任务卡与实施计划已保存在 `docs/archive/task-cards/`，历史过程、额度、失败与证据均未删除。PR #13已合并，归档已经生效。功能worktree与本地证据的处置边界已经记录在 [F-009 本地遗留资源处置清单](F-009-本地资源处置清单.md)，当前仍全部保留；后续开发或资源清理都必须建立新的、独立授权的任务。
