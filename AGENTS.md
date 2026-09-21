@@ -51,4 +51,4 @@
 
 `docs/README.md` 是文档地图；当前状态以 `current-task.md`、roadmap、progress 与 evidence 的职责划分为准。聊天记录不是项目事实来源。
 
-当前文档权威根为 `E:\Agent\comprehensive-cases\15-cyber-town\docs`；F-009 代码 worktree 为 `E:\Agent\comprehensive-cases\15-cyber-town-f009`。功能 worktree 中的旧文档副本不能作为当前阶段依据，进入新 Step 前核对两处入口和 Git 事实。方法论接入与已知文档差异见 `docs/project-management/方法论同步说明.md`。
+当前文档权威根为 `E:\Agent\comprehensive-cases\15-cyber-town\docs`。F-009 的临时代码 worktree 路径 `E:\Agent\comprehensive-cases\15-cyber-town-f009` 已在文件系统中不存在，但 Git 仍保留可修剪的 worktree 元数据；不得把该登记解释为目录仍存在，也不得据此重建、清理或覆盖正式仓。当前资源事实见 `docs/project-management/F-009-本地资源处置清单.md`，方法论接入与历史文档差异见 `docs/project-management/方法论同步说明.md`。

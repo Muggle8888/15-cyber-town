@@ -20,7 +20,7 @@
 
 ## 安全策略
 
-系统提示、persona、检索记忆、玩家输入和模型输出必须标记来源。玩家文本与记忆均不得获得“指令优先级”；模型不得访问密钥、文件、网络或任意游戏状态。实施阶段新增：输入长度/频率限制、敏感内容策略、prompt-injection case、输出检查、人工复核路径与安全事件脱敏记录。
+系统提示、persona、检索记忆、玩家输入和模型输出必须标记来源。玩家文本与记忆均不得获得“指令优先级”；模型不得访问密钥、文件、网络或任意游戏状态。当前确定性控制层已实现输入长度/频率限制、预算与permit、prompt-injection负例、输出检查、失败降级和安全事件脱敏记录。
 
 ## 多 Agent 结论
 
@@ -34,9 +34,17 @@
 - 结构化 audit 只允许 trace/request ID、persona/provider/model、结果、延迟、usage、费用估算和字符数，不记录原始 prompt、玩家消息、模型回复、API key 或 provider body。
 - F-003 历史 Step 5 的 12 项真实 persona 用例与 Godot 端到端已通过；F-005 的真实评估、独立 QA 和用户 UAT 必须按当前任务分别授权和验收。
 
-## F-005 当前长期记忆边界
+## F-005 历史长期记忆基线
 
 - Nia 仍为唯一、最高优先级 system persona；只允许确定性服务管理 `game_alias`、`preferred_language`、`reply_style` 与 `favorite_cyber_town_topic`。模型既不能自行记住/删除，也不能把长期事实改写为 system/developer/tool 指令。
 - 显式记住/忘记通过既有 Dialogue v1 直接返回 `completed / local-memory`，零 provider 调用；普通问题只读取双元 scope、active、未过期、匹配固定 key/别名的事实，随后作为 `UNTRUSTED_LONG_TERM_MEMORY` user 数据发送。
 - 统一上下文顺序为唯一 persona system → 受限长期事实 → 完整短期 user/assistant → 当前 user；总工程预算 8192、长期事实最多 2048、回复预留 256，禁止半条事实、半回合和过期/遗忘正文复活。
 - 72 项 fake-only golden set、Godot loopback 和专项授权的真实 DeepSeek 评估均已验证跨 conversation/重启恢复、跨 player 隔离、更新、遗忘和 honest unknown；Step 5 真实评估额外确认四类批准事实与 Nia persona 优先，7 次调用/USD 0.000690。Step 6 独立 QA 零发现，Step 7 用户真实窗口 UAT 以 3 次调用/USD 0.000408 通过跨窗口、重启、更新和遗忘验收；后续真实调用仍需独立授权和跨进程预算台账。
+
+## F-007—F-009 当前 Agent 边界
+
+- 当前 persona registry 固定为 `neon_guide / Nia`、`signal_archivist / Ivo`、`night_courier / Rhea`。每次请求只装配当前 `npc_id` 的一个最高优先级 persona；不同 NPC 不共享可变提示、短期记忆、长期事实或关系状态。
+- Agent 的职责是组织已授权上下文、调用 provider、生成角色化回复，并提供严格 schema 下的有限分类建议。Agent 不直接批准 provider dispatch，不决定关系分值，也不能写入任意记忆、预算或权限状态。
+- 确定性控制层在 dispatch 前处理输入安全、频率、预算、permit 与熔断，在 completion 后校验结果、结算成本、应用关系规则并记录脱敏事件。任何 provider 输出都必须经过 schema 和策略校验。
+- F-008/F-009 的可观测性只保存 trace、分类、计数、延迟、usage、费用和结果码等 allowlist 元数据；原始 prompt、玩家消息、模型回复、密钥、reasoning 和 provider body 不进入普通日志或 SQLite。
+- 当前仍是“玩家与所选 NPC 的一对一对话”系统，不是 NPC 自治协作、多 Agent 调度或任意工具执行平台。

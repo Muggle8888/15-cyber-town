@@ -56,3 +56,11 @@
 - 结果：2020 个基础判定与 2020 个冷却判定均满足范围、阶段一致、变化上限、饱和、低置信度、neutral 与 UTC 每日一次有效变化的约束；2 个时区边界案例验证以 UTC 日而非本地日计算冷却；违规数为 0。
 - 24 个非法 suggestion 覆盖非对象、缺失字段、未知分类、bool/float/越界置信度、嵌套类型、`score`、`rule_version`、`delta`、`instruction`、`system` 与提示注入样式字段。全部仅得到 `candidate_invalid / delta 0`，不会改变关系状态。
 - 另以 FakeProvider completion 穿过 DialogueService 和只读关系 GET 回归 3 个操纵 suggestion；正常对话仍完成，关系保持 20 分，并留下 metadata-only 的 inert 事件。这证明输入处理边界，不替代后续独立 QA 或用户窗口 UAT。
+
+## F-007—F-009 当前评估边界
+
+- F-007 多 NPC 评估覆盖三个固定 persona 的身份选择、玩家/NPC/conversation 隔离、长期事实和关系双元 scope、跨 NPC 切换、旧回调抑制及未知 NPC fail-closed；不能用单 NPC 用例推断隔离已经成立。
+- F-008 可观测性评估覆盖事件 schema、trace 关联、错误分类、usage/成本字段、报告聚合、存储恢复与敏感内容拒绝。日志或 SQLite 中出现密钥、prompt、玩家消息、模型回复、reasoning 或 provider body 即失败。
+- F-009 安全与成本评估覆盖 pre-dispatch 输入安全、频率、预算、provider permit、成本归因、重试/熔断、并发竞争、SQLite 故障和状态恢复；被拒绝的请求必须保持 provider dispatch 为 0。
+- F-009 最终 fake-only `native-quality-10` 已通过，完整 pytest 为 2,942 passed、133 个有契约依据的历史根条件 skip、0 failed；固定性能协议仅执行一次 warm-up + 5 次测量，8 个场景无 failure/warning。该结论只适用于冻结代码、QA 工具和本地 synthetic 环境，不等于新的真实 provider 或生产验收。
+- Step 6 原始仓库外运行根当前已经不存在；可长期引用的证据为 Git 内归档、索引、哈希和本文件中的脱敏结论，不能再假定原始 SQLite 或运行现场可复查。

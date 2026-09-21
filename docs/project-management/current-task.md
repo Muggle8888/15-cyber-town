@@ -1,6 +1,6 @@
 # 当前任务：无活动任务
 
-更新时间：2026-09-19
+更新时间：2026-09-21
 
 ## 当前状态面板
 
@@ -14,13 +14,13 @@
 | 已完成到哪里 | PR #13已合并为 `75171492070bddddffef58cc4f0fe9552d40bb77`；合并后Quality run `35343297890`成功 |
 | 精确阻塞点 | 无 |
 | 本阶段不执行 | 新任务开发、发布、tag、部署、删除资源、删除分支或重跑F-009验收 |
-| 唯一最小下一项 | 由用户选择下一张任务卡；如需处置旧worktree、分支或证据，须另行给出精确授权 |
+| 唯一最小下一项 | 由用户选择下一张任务卡；如需清理残留Git worktree元数据或分支，须另行给出精确授权 |
 | 授权状态 | `CONSUMED`；F-009开发、验收、交付与合并授权均已消费 |
 | 额度 | Step 6、Step 7修复、运行、CI与合并额度均按证据消费；不追加运行 |
 | 环境与副作用 | 本地`main`已快进同步到合并提交；无业务服务、真实Provider调用或生产变更 |
-| 当前证据 | [evidence.md：PR #13合并、本地main同步与收尾证据](evidence.md#2026-09-19-pr-13合并本地main同步与收尾证据) |
-| 遗留资源处置 | [已完成分类](F-009-本地资源处置清单.md)；正式仓与Git归档保留，三个本地路径仅为有条件可删除，本轮均未删除 |
-| 更新时间 | `2026-09-19 15:13 +08:00` |
+| 当前证据 | [evidence.md：文档偏移校准与本地资源复核](evidence.md#2026-09-21-文档偏移校准与本地资源复核) |
+| 遗留资源处置 | [已校准](F-009-本地资源处置清单.md)；正式仓与Git归档保留，三个历史本地路径均已观察为不存在，删除时间与执行主体无法由现有证据确认；Git仍残留可修剪的worktree登记 |
+| 更新时间 | `2026-09-21 +08:00` |
 
 ## 当前执行合同
 
@@ -34,7 +34,7 @@ execution_status: COMPLETE
 current_goal: 无；等待用户选择新的任务卡
 completed_checkpoint: "PR #13 merged as 75171492070bddddffef58cc4f0fe9552d40bb77; post-merge Quality run 35343297890 passed"
 blocked_at: null
-next_action: 由用户选择新的任务卡；旧worktree、分支或证据的处置必须另行授权
+next_action: 由用户选择新的任务卡；残留Git worktree元数据或分支的清理必须另行授权
 next_action_type: SELECT_TASK
 authorization:
   state: CONSUMED
@@ -71,27 +71,32 @@ local:
   origin: https://github.com/Muggle8888/15-cyber-town.git
   main_sha: 75171492070bddddffef58cc4f0fe9552d40bb77
   closeout_branch: docs/f-009-post-merge-closeout
-  feature_worktree: retained; existing AGENTS.md change preserved
-  evidence_root: retained at E:/Agent/cyber-town-f009-step6-qa/recovery-20260905-01
+  feature_worktree: filesystem path absent; Git registration remains prunable
+  feature_worktree_uncommitted_change: no longer locally accessible; only historical hashes and summary remain
+  step5_evidence_root: filesystem path absent; raw run artifacts unavailable
+  step6_evidence_root: filesystem path absent; raw run artifacts unavailable
 resource_disposition:
-  status: DOCUMENTED_NOT_EXECUTED
+  status: FILESYSTEM_ABSENT_GIT_METADATA_STALE
   manifest: docs/project-management/F-009-本地资源处置清单.md
   keep:
     - E:/Agent/comprehensive-cases/15-cyber-town
     - docs/project-management
     - docs/archive/task-cards
     - docs/archive/F-009-过程记录-20260905
-  conditional_delete:
+  observed_absent:
     - E:/Agent/comprehensive-cases/15-cyber-town-f009
     - E:/Agent/cyber-town-f009-step5-tests
     - E:/Agent/cyber-town-f009-step6-qa
-  deletion_authorized: false
+  deletion_time: unknown
+  deletion_actor: unknown
+  deletion_authorization_recorded_in_repo: false
+  git_worktree_metadata_cleanup_authorized: false
 decision_needed: null
 proposed_next_scope_authorized: false
-evidence: docs/project-management/evidence.md#2026-09-19-pr-13合并本地main同步与收尾证据
-updated_at: 2026-09-19 15:13 +08:00
+evidence: docs/project-management/evidence.md#2026-09-21-文档偏移校准与本地资源复核
+updated_at: 2026-09-21 +08:00
 ```
 
 ## 归档说明
 
-F-009完整活动任务卡与实施计划已保存在 `docs/archive/task-cards/`，历史过程、额度、失败与证据均未删除。PR #13已合并，归档已经生效。功能worktree与本地证据的处置边界已经记录在 [F-009 本地遗留资源处置清单](F-009-本地资源处置清单.md)，当前仍全部保留；后续开发或资源清理都必须建立新的、独立授权的任务。
+F-009完整活动任务卡与实施计划已保存在 `docs/archive/task-cards/`，Git内历史过程、额度、失败与证据均未删除。PR #13已合并，归档已经生效。功能worktree和两个仓库外证据根当前均已观察为不存在，原始SQLite与运行现场不能仅凭Git恢复；Git仍残留旧worktree登记。准确边界见 [F-009 本地遗留资源处置清单](F-009-本地资源处置清单.md)，后续开发或Git元数据清理必须建立新的、独立授权任务。

@@ -1,10 +1,20 @@
 # F-009 当前证据索引
 
-更新时间：2026-09-19
+更新时间：2026-09-21
 
 ## 当前结论
 
 B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7最终PR HEAD CI、PR #13合并及合并后`main` CI均已通过，任务卡与实施计划归档已经生效。当前无活动任务，F-009授权已消费完毕。
+
+## 2026-09-21 文档偏移校准与本地资源复核
+
+只读文件系统复核确认 `E:/Agent/comprehensive-cases/15-cyber-town-f009`、`E:/Agent/cyber-town-f009-step5-tests` 和 `E:/Agent/cyber-town-f009-step6-qa` 均不存在。现有Git与文档证据不能确定删除时间、执行主体或外部授权链，因此只记录“观察为不存在”，不反向伪造删除执行记录。本次文档收尾未执行删除、移动、压缩、服务、测试、quality、性能或真实Provider调用。
+
+`git worktree list --porcelain` 仍登记 `E:/Agent/comprehensive-cases/15-cyber-town-f009`，HEAD为 `69da08982760cff23736a37cdd25c2c779a9ce36`，并报告 `prunable gitdir file points to non-existent location`。本轮没有运行会写入仓库元数据的 `git worktree prune/remove`，也没有删除本地或远程分支。原worktree的未提交`AGENTS.md`差异不再可从该路径读取，只保留2026-09-19清单中的摘要与SHA-256。
+
+两个仓库外证据根历史盘点合计4,480,321,135 bytes，其中的原始SQLite、运行目录和测试现场未完整进入Git，当前不能仅凭仓库恢复。必须长期保留的证据仍包括正式仓、`docs/project-management/`、归档任务卡、`docs/archive/F-009-过程记录-20260905/`、机器索引、manifest、9个分片及整体SHA-256。历史段落继续表示其记录时点的事实；当前资源状态以本节和[F-009本地资源处置清单](F-009-本地资源处置清单.md)为准。
+
+用户随后单独批准审查上述15个正式文档变化、提交并仅推送当前 `docs/f-009-post-merge-closeout` 分支。该授权不包含产品测试、quality/性能重跑、资源删除、`git worktree prune/remove`、分支删除、PR、合并或`main`修改；实际提交与远端分支结果以本轮Git复核为准。
 
 ## 2026-09-19 PR #13合并、本地main同步与收尾证据
 
@@ -779,7 +789,7 @@ observer：native-monitor-ready记录root准确、父PID25992；native-summary c
 
 ## 2026-09-09 AST类型恢复与运行前冻结
 
-用户已批准局部类型适配及原唯一定向恢复。仅测试中ast.Module边界改为list[ast.stmt](methods)，原FunctionDef筛选、方法体及脚本均不变；没有Any/cast/ignore适配。原73809585保存点与18台账/2349资源逐项核对一致。本次完整静态复验按下方原五项准确命令，Ruff/format/AST/mypy/两仓diff均exit0；AST为2文件/3fixture且不导入QA，mypy两目标原strict/MYPYPATH及小写nul。初次失败记录保留，本次仅已批准的一次类型恢复及完整复验。
+用户已批准局部类型适配及原唯一定向恢复。仅测试中`ast.Module`边界改为`list[ast.stmt]`（变量`methods`），原`FunctionDef`筛选、方法体及脚本均不变；没有Any/cast/ignore适配。原73809585保存点与18台账/2349资源逐项核对一致。本次完整静态复验按下方原五项准确命令，Ruff/format/AST/mypy/两仓diff均exit0；AST为2文件/3fixture且不导入QA，mypy两目标原strict/MYPYPATH及小写nul。初次失败记录保留，本次仅已批准的一次类型恢复及完整复验。
 
 冻结聚合7d4bec7ad344569d572b6935a8ba4b6309d6571d6d7cf693472947fdd1686852；测试SHA5628b7acaefac8f392041315c88bcc3bfb716c22d04a59d5856a05f73493be41，脚本仍0ea8b15e2482ca4af8f967cf33833070f94372dbd69508dad9121e7797e47617。相对接续仅获批两行替换，其余99项不变，无尾空白；两仓分支/HEAD/staged0及100/19保持。新根/全部父链无reparse，端口8000/8001空闲，无相关进程，旧资源237263969bytes/18台账未变。
 
