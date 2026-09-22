@@ -47,7 +47,7 @@ E:\Agent.tools\godot\4.7.2\Godot_v4.7.2-stable_win64_console.exe --path game
 
 ## CI 边界
 
-`.github/workflows/quality.yml` 在 `main` push、pull request 和人工触发时运行同一入口。workflow 只有 `contents: read` 权限，不引用 secrets、不持久化 checkout 凭证、不启动服务容器，也不访问真实 LLM、正式数据库或生产服务；SQLite 测试只使用隔离临时数据库。runner 从公开发行源取得 action、uv、Python、锁定依赖和经 SHA-256 固定的 Godot 4.7.2 Standard Linux 包；所有集成流量仅在 runner 的 `127.0.0.1:8000` 内发生。F-009 最终交付由 PR #13 合并为 `75171492070bddddffef58cc4f0fe9552d40bb77`，最终 PR CI 与合并后 `main` CI 均通过；详细运行事实见 [evidence.md](docs/project-management/evidence.md)。
+`.github/workflows/quality.yml` 在 `main` push、pull request 和人工触发时运行同一入口。workflow 只有 `contents: read` 权限，不引用 secrets、不持久化 checkout 凭证、不启动服务容器，也不访问真实 LLM、正式数据库或生产服务；SQLite 测试只使用隔离临时数据库。runner 从公开发行源取得 action、uv、Python、锁定依赖和经 SHA-256 固定的 Godot 4.7.2 Standard Linux 包；所有集成流量仅在 runner 的 `127.0.0.1:8000` 内发生。F-010 最终交付由 PR #14 合并为 `49598b6c1962c528d32a63829e82ea6832f1c623`，最终 PR CI 与合并后 `main` CI 均通过；详细运行事实见 [evidence.md](docs/project-management/evidence.md)。
 
 ## 本地对话场景
 
