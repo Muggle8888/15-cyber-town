@@ -1,0 +1,63 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/town/npc_actor.gd" id="1_npc"]
+[ext_resource type="Texture2D" path="res://assets/third_party/tiny_rpg_fantasy/tiny-rpg-town-files/Assets/Environments/Town/spritesheets/npc.png" id="2_npc_texture"]
+
+[sub_resource type="CircleShape2D" id="Circle_interaction"]
+radius = 42.0
+
+[sub_resource type="CapsuleShape2D" id="Capsule_body"]
+radius = 5.0
+height = 12.0
+
+[node name="NpcActor" type="Area2D"]
+collision_layer = 2
+collision_mask = 0
+monitoring = true
+script = ExtResource("1_npc")
+
+[node name="InteractionRange" type="CollisionShape2D" parent="."]
+position = Vector2(0, -8)
+shape = SubResource("Circle_interaction")
+
+[node name="Body" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Body"]
+position = Vector2(0, -6)
+shape = SubResource("Capsule_body")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+position = Vector2(0, -16)
+scale = Vector2(2, 2)
+texture = ExtResource("2_npc_texture")
+hframes = 3
+vframes = 4
+
+[node name="NameLabel" type="Label" parent="."]
+offset_left = -40.0
+offset_top = -52.0
+offset_right = 40.0
+offset_bottom = -34.0
+theme_override_colors/font_color = Color(1, 0.835294, 0.572549, 1)
+theme_override_colors/font_shadow_color = Color(0.0666667, 0.0588235, 0.117647, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 12
+text = "NPC"
+horizontal_alignment = 1
+
+[node name="PlaceLabel" type="Label" parent="."]
+offset_left = -56.0
+offset_top = 8.0
+offset_right = 56.0
+offset_bottom = 24.0
+theme_override_colors/font_color = Color(0.784314, 0.823529, 0.890196, 1)
+theme_override_colors/font_shadow_color = Color(0.0666667, 0.0588235, 0.117647, 1)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 10
+text = "地点"
+horizontal_alignment = 1

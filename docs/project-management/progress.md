@@ -1,12 +1,16 @@
 # 项目进度
 
-更新时间：2026-09-21
+更新时间：2026-09-22
 
 ## 当前结论
 
-F-009 Step 0—7已经完整收口。PR #13最终HEAD `a0911b95b657f3fb557d2a422c15836e14fcb9fc`的Quality run `35343077888`成功；PR随后以 `75171492070bddddffef58cc4f0fe9552d40bb77` 合并到`main`，合并后Quality run `35343297890`再次成功。正式仓本地`main`已快进同步到该合并提交，任务卡与实施计划归档已经生效。
+用户已批准 `F-010 Cyber Town 基础可玩版本` 的概念视觉，并于 2026-09-22 通过首个 `640 × 360` Godot 实机画面 `godot-normal-v2.png`。城镇现已成为产品入口，包含一街一广场、玩家四向移动、碰撞、有限摄像机、三名固定 NPC、最近目标提示、健康状态、底部中文对话、按 NPC 恢复的会话与六回合记录、关系阶段、失败/重试/降级反馈、基础声音和静音开关。
 
-当前无活动任务、无实现阻塞，也没有沿用的F-009授权。2026-09-21只读复核发现功能worktree、Step 5证据根和Step 6证据根均已在文件系统中不存在；删除时间、执行主体和授权链无法由现有仓库证据确认。Git仍登记旧功能worktree为`prunable`，远程/本地历史分支未在本轮处理。下一步只能由用户选择新任务，或另行精确授权Git元数据/分支处置。
+当前分支为 `feat/playable-town`，基线为已推送的 F-009 文档收尾提交 `2666f54180f6f31c79de785f38a6ac64e58ea85b`。Godot 4.7.2 编辑器导入、F-010 城镇定向测试、既有 Godot 诊断/对话回归和独立端口 `18010` 的 fake FastAPI—Godot 城镇回环均通过。用户于 2026-09-22 实际试玩后确认“除 Fake 固定回复外，功能和手感试玩通过”；用户随后正常关闭试玩窗口。完整 Noto Sans CJK SC OFL 字体已接入；尚未提交或推送。
+
+当前执行状态为 `READY_FOR_GIT_DELIVERY`。DeepSeek 规范模型名、当前价格预算、v10 控制数据库迁移、隔离 UAT 脚本与追加式未知结果解决账本已接入；最终统一质量为 2115 passed、969 个既有条件 skip、0 failed。真实 UAT 在 9 次硬上限内完成：8 次取得官方 usage，1 次未知结果保留原记录并按最大预留保守计费；累计 2065 输入 token、307 输出 token，保守费用 11,130 微美元。9 项检查覆盖三名 NPC 身份、Nia 多轮上下文与跨服务长期事实召回、Ivo 跨 NPC 长期事实隔离和关系事件。Fake、用户试玩与真实模型三层验收均已通过，下一项为 Git 交付。
+
+视觉基线见 [`docs/design/playable-town/visual-baseline.md`](../design/playable-town/visual-baseline.md)，当前任务与后续步骤分别见 [current-task.md](current-task.md) 和 [implementation-plan.md](implementation-plan.md)。
 
 ## F-009历史执行摘要
 

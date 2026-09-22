@@ -1,102 +1,97 @@
-# 当前任务：无活动任务
+# 当前任务：F-010 Cyber Town 基础可玩版本
 
-更新时间：2026-09-21
+更新时间：2026-09-22
 
 ## 当前状态面板
 
 | 判断项 | 当前唯一口径 |
 | --- | --- |
-| 当前任务卡 | 无；最近完成任务为F-009安全、成本与性能优化 |
-| 路线图任务状态 | `COMPLETE` |
-| 当前所在步骤 | 无活动Step；F-009 Step 7已交付、合并并归档生效 |
-| 当前业务闭环 | F-009 Step 0—7、最终PR CI、PR合并及合并后`main` CI均已完成 |
-| 当前执行状态 | `COMPLETE` |
-| 已完成到哪里 | PR #13已合并为 `75171492070bddddffef58cc4f0fe9552d40bb77`；合并后Quality run `35343297890`成功 |
-| 精确阻塞点 | 无 |
-| 本阶段不执行 | 新任务开发、发布、tag、部署、删除资源、删除分支或重跑F-009验收 |
-| 唯一最小下一项 | 由用户选择下一张任务卡；如需清理残留Git worktree元数据或分支，须另行给出精确授权 |
-| 授权状态 | `CONSUMED`；F-009开发、验收、交付与合并授权均已消费 |
-| 额度 | Step 6、Step 7修复、运行、CI与合并额度均按证据消费；不追加运行 |
-| 环境与副作用 | 本地`main`已快进同步到合并提交；无业务服务、真实Provider调用或生产变更 |
-| 当前证据 | [evidence.md：文档偏移校准与本地资源复核](evidence.md#2026-09-21-文档偏移校准与本地资源复核) |
-| 遗留资源处置 | [已校准](F-009-本地资源处置清单.md)；正式仓与Git归档保留，三个历史本地路径均已观察为不存在，删除时间与执行主体无法由现有证据确认；Git仍残留可修剪的worktree登记 |
-| 更新时间 | `2026-09-21 +08:00` |
+| 当前任务卡 | `F-010 Cyber Town 基础可玩版本` |
+| 路线图任务状态 | `ACTIVE` |
+| 当前所在步骤 | Step 5：Fake、用户试玩、统一质量与真实模型 UAT 均通过，进入 Git 交付 |
+| 当前业务闭环 | 将现有 Agent 后端和低保真表单转化为可移动、可接近三名 NPC 并对话的 2D 小街区 |
+| 当前执行状态 | `READY_FOR_GIT_DELIVERY` |
+| 已完成到哪里 | v2 视觉门禁、城镇闭环、Fake/用户试玩、统一质量（2115 passed）与 9 次硬上限内真实模型 UAT 全部通过 |
+| 精确阻塞点 | 无产品或验收阻塞；待完成提交、推送、PR、远端 CI 和合并记录 |
+| 当前未执行 | Git 提交、推送、PR、远端 CI 和合并 |
+| 唯一最小下一项 | 审查最终差异后完成 F-010 Git 交付 |
+| 下一动作类型 | `DELIVER_F010_GIT` |
+| 授权状态 | 用户于 2026-09-21 批准视觉基线、`F-010` 及本地实现；2026-09-22 明确批准本轮真实模型 UAT；Git 交付仍未授权 |
+| 外部调用 | 1 次内置图像生成；官方 CC0/OFL 素材下载；F-010 真实 UAT 共 9 次（8 次官方 usage、1 次未知结果按最大预留保守计费） |
+| 当前分支 | `feat/playable-town`，从 `2666f54180f6f31c79de785f38a6ac64e58ea85b` 创建 |
+| 环境与副作用 | 已按授权读取本地测试配置但未输出密钥；隔离 UAT 与台账资源保留在受忽略 `data/` 路径；未删除、重置或清理资源 |
+| 当前证据 | [视觉基线、获批 v2 与交互版 v3 截图](../design/playable-town/visual-baseline.md) |
 
-## 当前执行合同
+## 任务合同
 
 ```yaml
-task_id: null
-task_name: 无活动任务
-last_completed_task: F-009 安全、成本与性能优化
-roadmap_status: COMPLETE
-step: "none / F-009 Step 7 delivered, merged and archived"
-execution_status: COMPLETE
-current_goal: 无；等待用户选择新的任务卡
-completed_checkpoint: "PR #13 merged as 75171492070bddddffef58cc4f0fe9552d40bb77; post-merge Quality run 35343297890 passed"
-blocked_at: null
-next_action: 由用户选择新的任务卡；残留Git worktree元数据或分支的清理必须另行授权
-next_action_type: SELECT_TASK
+task_id: F-010
+working_id: PLAYABLE-TOWN
+task_name: Cyber Town 基础可玩版本
+roadmap_status: ACTIVE
+step: git_delivery
+execution_status: READY_FOR_GIT_DELIVERY
+current_goal: 完成F-010提交、PR、CI与合并交付
+completed_checkpoint: visual and playable loop, fake and user UAT, full quality 2115 passed, real UAT passed at 9-call hard cap
+blocked_at: none
+next_action: 审查最终差异并完成Git交付
+next_action_type: DELIVER_F010_GIT
 authorization:
-  state: CONSUMED
-  basis: F-009开发、验收、交付、CI与合并授权已完成消费；不得据此开始新任务或删除资源
-limits:
-  step6_quality: "native-quality-10 1/1 used; no additional run"
-  step6_performance: "fixed 1+5 matrix 1/1 used; no additional run"
-  step7_archive_repair: "1/1 used"
-  step7_targeted_scan: "1/1 used"
-  step7_ci_repair_commits: "2 used after archive packaging commit"
-  step7_final_head_ci: "1/1 passed: run 35343077888"
-  merge: "1/1 completed: 75171492070bddddffef58cc4f0fe9552d40bb77"
-  post_merge_ci: "1/1 passed: run 35343297890"
-  external_product_calls: 0
-environment: local scoped Git + GitHub PR/CI; synthetic/fake-only historical acceptance
-step6_complete: true
-step7_delivery_complete: true
-archive:
-  status: EFFECTIVE
-  effective_commit: 75171492070bddddffef58cc4f0fe9552d40bb77
-  task_card: docs/archive/task-cards/F-009-safety-cost-performance.md
-  implementation_plan: docs/archive/task-cards/F-009-implementation-plan.md
-pr:
-  number: 13
-  url: https://github.com/Muggle8888/15-cyber-town/pull/13
-  state: MERGED
-  base: main
-  head: feat/f-009-delivery
-  final_head_sha: a0911b95b657f3fb557d2a422c15836e14fcb9fc
-  final_head_ci_run_id: 35343077888
-  merge_commit_sha: 75171492070bddddffef58cc4f0fe9552d40bb77
-  post_merge_ci_run_id: 35343297890
-local:
-  origin: https://github.com/Muggle8888/15-cyber-town.git
-  main_sha: 75171492070bddddffef58cc4f0fe9552d40bb77
-  closeout_branch: docs/f-009-post-merge-closeout
-  feature_worktree: filesystem path absent; Git registration remains prunable
-  feature_worktree_uncommitted_change: no longer locally accessible; only historical hashes and summary remain
-  step5_evidence_root: filesystem path absent; raw run artifacts unavailable
-  step6_evidence_root: filesystem path absent; raw run artifacts unavailable
-resource_disposition:
-  status: FILESYSTEM_ABSENT_GIT_METADATA_STALE
-  manifest: docs/project-management/F-009-本地资源处置清单.md
-  keep:
-    - E:/Agent/comprehensive-cases/15-cyber-town
-    - docs/project-management
-    - docs/archive/task-cards
-    - docs/archive/F-009-过程记录-20260905
-  observed_absent:
-    - E:/Agent/comprehensive-cases/15-cyber-town-f009
-    - E:/Agent/cyber-town-f009-step5-tests
-    - E:/Agent/cyber-town-f009-step6-qa
-  deletion_time: unknown
-  deletion_actor: unknown
-  deletion_authorization_recorded_in_repo: false
-  git_worktree_metadata_cleanup_authorized: false
-decision_needed: null
-proposed_next_scope_authorized: false
-evidence: docs/project-management/evidence.md#2026-09-21-文档偏移校准与本地资源复核
-updated_at: 2026-09-21 +08:00
+  plan_implementation: authorized_by_user_2026_09_21
+  visual_preproduction: consumed
+  game_code_changes: authorized_by_user_2026_09_21
+  local_tests: authorized_for_f010
+  real_provider_calls: authorized_by_user_2026_09_22_7_planned_9_hard_cap_usd_0_05
+  git_commit_push_pr_merge: unauthorized
+external_calls:
+  image_generation: 1
+  real_provider_completed_with_usage: 8
+  real_provider_unknown_conservatively_charged: 1
+  real_provider_total: 9
+branch:
+  name: feat/playable-town
+  base: 2666f54180f6f31c79de785f38a6ac64e58ea85b
+design:
+  baseline: docs/design/playable-town/visual-baseline.md
+  concept: docs/design/playable-town/concept-v1.png
+  approved_capture: docs/design/playable-town/godot-normal-v2.png
+  current_capture: docs/design/playable-town/godot-interactive-v3.png
+  status: FIRST_VISUAL_GATE_APPROVED
 ```
 
-## 归档说明
+## 用户目标与业务价值
 
-F-009完整活动任务卡与实施计划已保存在 `docs/archive/task-cards/`，Git内历史过程、额度、失败与证据均未删除。PR #13已合并，归档已经生效。功能worktree和两个仓库外证据根当前均已观察为不存在，原始SQLite与运行现场不能仅凭Git恢复；Git仍残留旧worktree登记。准确边界见 [F-009 本地遗留资源处置清单](F-009-本地资源处置清单.md)，后续开发或Git元数据清理必须建立新的、独立授权任务。
+玩家进入一处统一画面的 2D 小街区，控制角色移动，接近 Nia、Ivo、Rhea，与其对话并感知记忆和关系变化，然后继续探索。完成后项目首次具备玩家可观察的游戏闭环，而不再只是连接页和独立表单。
+
+## 非目标
+
+- 不做室内、多地图、任务、物品、战斗、昼夜、天气或开放世界。
+- 不做 NPC 自主移动、多 Agent 协作、复杂寻路或世界状态写入。
+- 不做移动端、手柄、语音、角色自定义或跨重启聊天记录。
+- 不修改公开 Dialogue v1 与 relationship API Schema。
+
+## UI 与视觉验收合同
+
+- 设计产物：`docs/design/playable-town/visual-baseline.md` 与 `concept-v1.png`。
+- 用户设计确认状态：`approved`（2026-09-21）。
+- 首个实机验收视口：Godot `640 × 360`，暖色傍晚正常状态，Nia 对话面板打开。
+- 必须一致：一街一广场、三名 NPC 空间分布、暖色窗灯/蓝紫阴影、低密度轻科幻装饰、底部面板比例、中文可读性。
+- 允许差异：角色和建筑细节服从最终获批的 16×16 素材；概念图远景、河流和心形图标不进入实机。
+- 禁止出现：风格混杂、生成图直接切片、战斗元素、过量霓虹、调试字段占据玩家 UI。
+- 核心页面状态：正常、加载、成功、降级、超时、不可用、非法输入和手动重试均已实现；用户已确认除 Fake 固定回复外，功能、视觉与手感试玩通过。
+
+## 验收标准摘要
+
+1. 玩家可在城镇移动、碰撞并被摄像机稳定跟随。
+2. 只有接近的最近 NPC 显示互动提示，未知 NPC 标识无法发起请求。
+3. 三名 NPC 的会话、聊天记录、关系和请求状态严格隔离。
+4. 对话、重试、降级、超时和后端不可用均有明确中文反馈。
+5. fake 功能验收、用户视觉/手感验收和另行授权的真实模型 UAT 分别通过后，任务才可完成。
+
+## 文件与安全边界
+
+视觉批准后允许修改 `game/`、相关 Godot 测试、统一质量入口的必要契约及对应权威文档。未经独立授权不得读取 `.env`、调用真实模型、提交、推送、创建 PR、合并、部署或删除资源。
+
+## 视觉门禁
+
+[项目规则](../../AGENTS.md)要求的设计批准、首个实机视口和用户 Fake 模式手感验收均已完成：用户先批准概念基线与 F-010，再于 2026-09-22 通过 `godot-normal-v2.png`，并确认除 Fake 固定回复外功能与手感试玩通过。这不等于真实模型 UAT 或 Git 交付获批。

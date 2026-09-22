@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from cyber_town.config import DEEPSEEK_MODEL
 
 _AUTHORIZATION_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
+_RESOLUTION_REASON = re.compile(r"[a-z0-9_]{1,64}")
 _BUSY_TIMEOUT_MILLISECONDS = 2_000
 _TOTAL_MAX_CALLS = 12
 _TOTAL_MAX_MICRO_USD = 50_000
@@ -32,11 +33,13 @@ class AcceptanceStep(StrEnum):
 
     STEP_5 = "step_5"
     STEP_7 = "step_7"
+    F010_REAL_PROVIDER_UAT = "f010_real_provider_uat"
 
 
 _STEP_LIMITS: dict[AcceptanceStep, tuple[int, int]] = {
     AcceptanceStep.STEP_5: (8, 35_000),
     AcceptanceStep.STEP_7: (4, 15_000),
+    AcceptanceStep.F010_REAL_PROVIDER_UAT: (9, 50_000),
 }
 
 
@@ -88,7 +91,8 @@ class AcceptanceLedger:
                         "CREATE TABLE IF NOT EXISTS acceptance_calls ("
                         "reservation_id TEXT PRIMARY KEY, "
                         "authorization_id TEXT NOT NULL, "
-                        "step TEXT NOT NULL CHECK(step IN ('step_5', 'step_7')), "
+                        "step TEXT NOT NULL "
+                        "CHECK(step IN ('step_5', 'step_7', 'f010_real_provider_uat')), "
                         "model TEXT NOT NULL, "
                         "status TEXT NOT NULL "
                         "CHECK(status IN ('reserved', 'completed', 'unknown')), "
@@ -102,6 +106,14 @@ class AcceptanceLedger:
                     connection.execute(
                         "CREATE INDEX IF NOT EXISTS acceptance_calls_step_status "
                         "ON acceptance_calls(step, status)"
+                    )
+                    connection.execute(
+                        "CREATE TABLE IF NOT EXISTS acceptance_unknown_resolutions ("
+                        "reservation_id TEXT PRIMARY KEY, "
+                        "authorization_id TEXT NOT NULL, "
+                        "reason_code TEXT NOT NULL, "
+                        "charged_micro_usd INTEGER NOT NULL CHECK(charged_micro_usd > 0), "
+                        "resolved_at INTEGER NOT NULL CHECK(resolved_at > 0)) STRICT"
                     )
                     connection.commit()
                 except sqlite3.Error:
@@ -245,6 +257,75 @@ class AcceptanceLedger:
         except sqlite3.Error as error:
             raise AcceptanceLedgerError("Acceptance ledger is unavailable") from error
 
+    def resolve_single_unknown_as_charged(
+        self,
+        *,
+        authorization_id: str,
+        step: AcceptanceStep,
+        reason_code: str,
+    ) -> None:
+        """Append one conservative resolution while preserving the unknown call row."""
+
+        if (
+            not isinstance(authorization_id, str)
+            or _AUTHORIZATION_ID.fullmatch(authorization_id) is None
+        ):
+            raise ValueError("Acceptance resolution authorization is invalid")
+        if step is not AcceptanceStep.F010_REAL_PROVIDER_UAT:
+            raise ValueError("Acceptance resolution is not approved for this step")
+        if not isinstance(reason_code, str) or _RESOLUTION_REASON.fullmatch(reason_code) is None:
+            raise ValueError("Acceptance resolution reason is invalid")
+        try:
+            with closing(self._connect()) as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                try:
+                    rows = connection.execute(
+                        "SELECT c.reservation_id, c.reserved_micro_usd, "
+                        "r.authorization_id, r.reason_code, r.charged_micro_usd "
+                        "FROM acceptance_calls c "
+                        "LEFT JOIN acceptance_unknown_resolutions r "
+                        "ON r.reservation_id = c.reservation_id "
+                        "WHERE c.status = 'unknown' AND c.authorization_id = ? "
+                        "AND c.step = ?",
+                        (authorization_id, step.value),
+                    ).fetchall()
+                    if len(rows) != 1:
+                        raise AcceptanceLedgerError(
+                            "Acceptance requires exactly one authorized unknown call"
+                        )
+                    reservation_id, reserved, existing_auth, existing_reason, existing_charge = (
+                        rows[0]
+                    )
+                    if existing_auth is not None:
+                        if (
+                            existing_auth != authorization_id
+                            or existing_reason != reason_code
+                            or existing_charge != reserved
+                        ):
+                            raise AcceptanceLedgerError(
+                                "Acceptance unknown resolution conflicts with existing evidence"
+                            )
+                        connection.commit()
+                        return
+                    connection.execute(
+                        "INSERT INTO acceptance_unknown_resolutions "
+                        "(reservation_id, authorization_id, reason_code, "
+                        "charged_micro_usd, resolved_at) VALUES (?, ?, ?, ?, ?)",
+                        (
+                            reservation_id,
+                            authorization_id,
+                            reason_code,
+                            reserved,
+                            int(time.time()),
+                        ),
+                    )
+                    connection.commit()
+                except (sqlite3.Error, AcceptanceLedgerError):
+                    connection.rollback()
+                    raise
+        except sqlite3.Error as error:
+            raise AcceptanceLedgerError("Acceptance ledger is unavailable") from error
+
     def summary(self) -> AcceptanceSummary:
         """Read bounded aggregate usage without exposing any request or response text."""
 
@@ -252,10 +333,14 @@ class AcceptanceLedger:
             with closing(self._connect()) as connection:
                 row = connection.execute(
                     "SELECT COUNT(*), "
-                    "COALESCE(SUM(CASE WHEN status != 'completed' THEN 1 ELSE 0 END), 0), "
-                    "COALESCE(SUM(prompt_tokens), 0), "
-                    "COALESCE(SUM(completion_tokens), 0), "
-                    "COALESCE(SUM(actual_micro_usd), 0) FROM acceptance_calls"
+                    "COALESCE(SUM(CASE WHEN c.status = 'reserved' OR "
+                    "(c.status = 'unknown' AND r.reservation_id IS NULL) THEN 1 ELSE 0 END), 0), "
+                    "COALESCE(SUM(c.prompt_tokens), 0), "
+                    "COALESCE(SUM(c.completion_tokens), 0), "
+                    "COALESCE(SUM(CASE WHEN c.status = 'completed' THEN c.actual_micro_usd "
+                    "ELSE r.charged_micro_usd END), 0) "
+                    "FROM acceptance_calls c LEFT JOIN acceptance_unknown_resolutions r "
+                    "ON r.reservation_id = c.reservation_id"
                 ).fetchone()
                 if row is None:
                     raise AcceptanceLedgerError("Acceptance ledger summary is unavailable")
@@ -268,17 +353,26 @@ class AcceptanceLedger:
         connection: sqlite3.Connection, step: AcceptanceStep, reserved_micro_usd: int
     ) -> None:
         unresolved = connection.execute(
-            "SELECT COUNT(*) FROM acceptance_calls WHERE status IN ('reserved', 'unknown')"
+            "SELECT COUNT(*) FROM acceptance_calls c "
+            "LEFT JOIN acceptance_unknown_resolutions r "
+            "ON r.reservation_id = c.reservation_id "
+            "WHERE c.status = 'reserved' OR "
+            "(c.status = 'unknown' AND r.reservation_id IS NULL)"
         ).fetchone()
         if unresolved is not None and unresolved[0]:
             raise AcceptanceLedgerError("Acceptance has an unresolved provider reservation")
 
         total = connection.execute(
-            "SELECT COUNT(*), COALESCE(SUM(actual_micro_usd), 0) FROM acceptance_calls"
+            "SELECT COUNT(*), COALESCE(SUM(CASE WHEN c.status = 'completed' "
+            "THEN c.actual_micro_usd ELSE r.charged_micro_usd END), 0) "
+            "FROM acceptance_calls c LEFT JOIN acceptance_unknown_resolutions r "
+            "ON r.reservation_id = c.reservation_id"
         ).fetchone()
         scoped = connection.execute(
-            "SELECT COUNT(*), COALESCE(SUM(actual_micro_usd), 0) "
-            "FROM acceptance_calls WHERE step = ?",
+            "SELECT COUNT(*), COALESCE(SUM(CASE WHEN c.status = 'completed' "
+            "THEN c.actual_micro_usd ELSE r.charged_micro_usd END), 0) "
+            "FROM acceptance_calls c LEFT JOIN acceptance_unknown_resolutions r "
+            "ON r.reservation_id = c.reservation_id WHERE c.step = ?",
             (step.value,),
         ).fetchone()
         if total is None or scoped is None:

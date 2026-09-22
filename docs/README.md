@@ -14,6 +14,7 @@
 - 候选路线：[`project-management/roadmap.md`](project-management/roadmap.md)
 - 当前任务：[`project-management/current-task.md`](project-management/current-task.md)
 - 当前计划：[`project-management/implementation-plan.md`](project-management/implementation-plan.md)
+- 基础可玩版本视觉基线候选：[`design/playable-town/visual-baseline.md`](design/playable-town/visual-baseline.md)
 - F-009 历史验收契约：[`project-management/F-009-验收契约.md`](project-management/F-009-验收契约.md)
 - 当前状态：[`project-management/progress.md`](project-management/progress.md)
 - 验收证据：[`project-management/evidence.md`](project-management/evidence.md)

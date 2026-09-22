@@ -2,7 +2,7 @@
 
 | 领域 | 推荐候选 | 解决的问题 | 替代项 / 成本 | 本轮结论与验证 |
 | --- | --- | --- | --- | --- |
-| 游戏前端 | Godot 4.7.2 Standard + GDScript | 2D 场景、输入、动画和 UI | Web/Unity；Godot 学习成本低且适合目标 | F-002 诊断场景与 F-003 独立对话场景均已验证；对话采用 `HTTPRequest`、15 秒 timeout、单在途和手动 retry，无 addon、.NET 或 export templates。 |
+| 游戏前端 | Godot 4.7.2 Standard + GDScript | 2D 场景、输入、动画和 UI | Web/Unity；Godot 学习成本低且适合目标 | F-010 产品入口为 640×360 像素城镇；F-002 连接页与 F-003 独立对话页保留为诊断入口。对话采用 `HTTPRequest`、15 秒 timeout、单在途和手动 retry，无 addon、.NET 或 export templates。 |
 | API | Python 3.12 + FastAPI 0.141.1 + Pydantic v2 | schema、错误语义、异步编排、OpenAPI | Flask/Starlette；FastAPI 需谨慎处理阻塞库 | 已锁定 Uvicorn 0.52.4、HTTPX 0.28.1；实现 health、严格 Dialogue v1 和只读 relationship GET。 |
 | LLM | DeepSeek `deepseek-v4-flash` + OpenAI SDK 3.3.1，经 Provider adapter | Nia/Ivo/Rhea 固定 persona 的角色化多轮对话与受限事实召回 | 其他 OpenAI-compatible 模型；成本和可用性外部化 | 固定 non-thinking/non-stream、temperature 0.6、max tokens 256、12 秒 timeout 和零 SDK retry；当前统一自动化与CI保持fake-only，历史F-005专项真实评估已通过。 |
 | Agent runtime | 自建轻量领域运行时 | 显式控制上下文、状态、日志和安全边界 | HelloAgents；后者适合作为学习对照 | 倾向自建；先做 provider/agent 端口，避免框架锁定。 |
@@ -58,6 +58,13 @@
 - F-008 增加持久化脱敏可观测性、离线评估和报告入口，不保存对话正文或模型内部推理。
 - F-009 增加输入安全、限流、预算、成本归因、provider permit、重试/熔断、异步 SQLite 边界、控制/可观测 SQLite 及固定性能门禁。
 - 统一质量入口与 GitHub CI 仍为 synthetic/fake-only；真实 provider、部署、外部数据库和生产环境不属于当前默认运行边界。
+
+## F-010 基础可玩客户端
+
+- 产品主入口为 640×360 逻辑视口、整数倍缩放的暖色傍晚像素街区；地图与角色使用 Tiny RPG Fantasy CC0 素材，短提示音使用 Kenney RPG Audio CC0，中文 UI 使用 Noto Sans CJK SC OFL。
+- 玩家四向移动并由有限摄像机跟随；三名 NPC 固定站位，最近目标才显示互动提示。打开对话后暂停移动，发送期间禁用关闭、切换和重复提交。
+- 每名 NPC 在本次启动内保留独立 conversation ID、最近六回合、重试上下文和关系快照；游戏重启会清空这些客户端状态，不改变后端长期事实与关系契约。
+- 不新增 WebSocket、任务、寻路、世界状态 API 或模型驱动动作；公开 Dialogue v1 和 relationship GET 保持不变。
 
 来源： [HelloAgents 第十五章](https://github.com/datawhalechina/hello-agents/blob/main/docs/chapter15/%E7%AC%AC%E5%8D%81%E4%BA%94%E7%AB%A0%20%E6%9E%84%E5%BB%BA%E8%B5%9B%E5%8D%9A%E5%B0%8F%E9%95%87.md)、[Godot HTTPRequest](https://docs.godotengine.org/en/stable/classes/class_httprequest.html)、[FastAPI 并发说明](https://fastapi.tiangolo.com/async/)、[DeepSeek 模型与价格](https://api-docs.deepseek.com/quick_start/pricing/)、[Qdrant local mode](https://qdrant.tech/documentation/frameworks/langchain/)。
 

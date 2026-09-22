@@ -109,7 +109,7 @@ def completion(reply: str, *, suggestion: object = None) -> ProviderCompletion:
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=3, completion_tokens=2),
         relationship_suggestion=suggestion,
     )

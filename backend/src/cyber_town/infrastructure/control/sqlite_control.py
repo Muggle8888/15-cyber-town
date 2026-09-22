@@ -57,6 +57,7 @@ CONTROL_MIGRATIONS = (
     (7, "0007_drop_redundant_budget_owner_npc_index.sql"),
     (8, "0008_budget_projection_integrity.sql"),
     (9, "0009_provider_permit_scope_storage.sql"),
+    (10, "0010_deepseek_flash_pricing_reservation.sql"),
 )
 _BUSY_TIMEOUT_MILLISECONDS = 2_000
 _MICROTOKENS = 1_000_000

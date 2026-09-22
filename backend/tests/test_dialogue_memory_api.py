@@ -40,7 +40,7 @@ def completion(
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=5, completion_tokens=3),
     )
 
@@ -72,7 +72,7 @@ def make_service(
         personas={approved_persona.npc_id: approved_persona},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

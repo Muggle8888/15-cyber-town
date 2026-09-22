@@ -89,6 +89,8 @@ def test_v9_product_upgrade_preserves_rows_and_restarts(
 
     from scripts import f009_step6_qa as qa
 
+    migrations = control_module.CONTROL_MIGRATIONS
+    monkeypatch.setattr(control_module, "CONTROL_MIGRATIONS", migrations[:9])
     before = _v9_legacy_fixture(tmp_path, monkeypatch, version)
     repository = make_repository(tmp_path)
     try:
@@ -537,7 +539,7 @@ def tags(seed: str = "a") -> PermitScopeTags:
     )
 
 
-def test_migrations_are_strict_and_append_only_through_space_fix(tmp_path: Path) -> None:
+def test_migrations_are_strict_and_append_only_through_current_version(tmp_path: Path) -> None:
     repository = make_repository(tmp_path)
 
     with sqlite3.connect(repository.database_path) as connection:
@@ -581,12 +583,54 @@ def test_migrations_are_strict_and_append_only_through_space_fix(tmp_path: Path)
     assert set(strict) == tables
     assert all(value == 1 for value in strict.values())
     assert control_module.CONTROL_MIGRATIONS[-1] == (
-        9,
-        "0009_provider_permit_scope_storage.sql",
+        10,
+        "0010_deepseek_flash_pricing_reservation.sql",
     )
-    assert migration_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9)
-    assert user_version == 9
+    assert migration_versions == (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    assert user_version == 10
     assert _CANDIDATE_INDEX not in indexes
+
+
+def test_v10_pricing_reservation_upgrade_preserves_v9_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    migrations = control_module.CONTROL_MIGRATIONS
+    with monkeypatch.context() as legacy:
+        legacy.setattr(control_module, "CONTROL_MIGRATIONS", migrations[:9])
+        repository = make_repository(tmp_path)
+        repository.close()
+    database = tmp_path / "control.sqlite3"
+    execution_id = _insert_v6_owner(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys=ON")
+        connection.execute(
+            "INSERT INTO budget_reservations "
+            "(execution_id,attempt_number,policy_version,pricing_version,provider_kind,"
+            "provider_model,reserved_micro_usd,soft_warning,status,reserved_at_ns,"
+            "released_at_ns,release_reason) VALUES "
+            "(?,1,'f-009-budget-policy-v1','legacy-price-v1','deepseek',"
+            "'deepseek-flash',2000,0,'released',1000,2000,'cancelled_before_dispatch')",
+            (execution_id,),
+        )
+
+    upgraded = make_repository(tmp_path)
+    upgraded.close()
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone() == (10,)
+        assert connection.execute(
+            "SELECT execution_id,reserved_micro_usd,status FROM budget_reservations"
+        ).fetchone() == (execution_id, 2000, "released")
+        reservation_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='budget_reservations'"
+        ).fetchone()[0]
+        settlement_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='budget_settlements'"
+        ).fetchone()[0]
+        assert "BETWEEN 0 AND 11000" in reservation_sql
+        assert "BETWEEN 0 AND 11000" in settlement_sql
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
 
 def _initialize_v6(

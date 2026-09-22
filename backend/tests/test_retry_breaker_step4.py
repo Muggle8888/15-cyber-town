@@ -348,7 +348,7 @@ async def test_cancellation_during_backoff_stops_retry_and_does_not_count_failur
 def test_control_migration_is_append_only_v3(tmp_path: Path) -> None:
     _, repository = make_control(tmp_path, FakeClock())
     with sqlite3.connect(repository.database_path) as connection:
-        assert connection.execute("PRAGMA user_version").fetchone() == (9,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (10,)
         tables = {
             str(row[0])
             for row in connection.execute(

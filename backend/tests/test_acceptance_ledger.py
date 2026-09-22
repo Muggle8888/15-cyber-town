@@ -16,7 +16,7 @@ from cyber_town.infrastructure.persistence.acceptance_ledger import (
     AcceptanceStep,
 )
 
-MODEL = "deepseek-v4-flash"
+MODEL = "deepseek-flash"
 AUTHORIZATION = "f-005-step-5-synthetic-authorization"
 
 
@@ -116,7 +116,7 @@ def test_reservation_rejects_unapproved_or_untyped_steps(
         )
 
 
-@pytest.mark.parametrize("bad_model", ["deepseek-chat", "", "deepseek-v4-flash "])
+@pytest.mark.parametrize("bad_model", ["deepseek-chat", "", "deepseek-flash "])
 def test_reservation_rejects_model_drift(ledger: AcceptanceLedger, bad_model: str) -> None:
     with pytest.raises(ValueError):
         ledger.reserve(
@@ -171,6 +171,28 @@ def test_step_seven_cannot_exceed_four_calls(ledger: AcceptanceLedger) -> None:
     assert ledger.summary().total_calls == 4
 
 
+def test_f010_real_provider_uat_cannot_exceed_nine_calls(
+    ledger: AcceptanceLedger,
+) -> None:
+    for _ in range(9):
+        settle(
+            ledger,
+            reserve(
+                ledger,
+                step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+                reserved_micro_usd=10_138,
+            ),
+        )
+
+    with pytest.raises(AcceptanceBudgetError):
+        reserve(
+            ledger,
+            step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
+    assert ledger.summary().total_calls == 9
+
+
 def test_step_five_cost_limit_is_enforced_before_provider_dispatch(
     ledger: AcceptanceLedger,
 ) -> None:
@@ -189,6 +211,25 @@ def test_step_seven_cost_limit_is_enforced_before_provider_dispatch(
 
     with pytest.raises(AcceptanceBudgetError):
         reserve(ledger, step=AcceptanceStep.STEP_7, reserved_micro_usd=5_001)
+
+
+def test_f010_real_provider_uat_cost_limit_is_enforced_before_dispatch(
+    ledger: AcceptanceLedger,
+) -> None:
+    for _ in range(4):
+        reservation = reserve(
+            ledger,
+            step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
+        settle(ledger, reservation, cost=10_000)
+
+    with pytest.raises(AcceptanceBudgetError):
+        reserve(
+            ledger,
+            step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
 
 
 def test_unresolved_reservation_blocks_all_new_calls_across_instances(
@@ -214,6 +255,63 @@ def test_unknown_provider_outcome_fails_closed_after_restart(ledger: AcceptanceL
     restarted.initialize()
     with pytest.raises(AcceptanceLedgerError):
         reserve(restarted, step=AcceptanceStep.STEP_7)
+
+
+def test_f010_unknown_resolution_is_append_only_conservatively_charged_and_resumable(
+    ledger: AcceptanceLedger,
+) -> None:
+    authorization = "f010-real-provider-uat-synthetic"
+    reservation_id = ledger.reserve(
+        authorization_id=authorization,
+        step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+        model=MODEL,
+        reserved_micro_usd=10_138,
+    )
+    ledger.mark_unknown(reservation_id)
+
+    ledger.resolve_single_unknown_as_charged(
+        authorization_id=authorization,
+        step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+        reason_code="provider_outcome_unresolved",
+    )
+    ledger.resolve_single_unknown_as_charged(
+        authorization_id=authorization,
+        step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+        reason_code="provider_outcome_unresolved",
+    )
+
+    summary = ledger.summary()
+    assert summary.total_calls == 1
+    assert summary.pending_calls == 0
+    assert summary.total_micro_usd == 10_138
+    followup = ledger.reserve(
+        authorization_id=authorization,
+        step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+        model=MODEL,
+        reserved_micro_usd=10_138,
+    )
+    settle(ledger, followup)
+    with sqlite3.connect(ledger.database_path) as connection:
+        assert connection.execute(
+            "SELECT reason_code, charged_micro_usd FROM acceptance_unknown_resolutions"
+        ).fetchall() == [("provider_outcome_unresolved", 10_138)]
+
+
+def test_unknown_resolution_rejects_other_steps_and_missing_unknown(
+    ledger: AcceptanceLedger,
+) -> None:
+    with pytest.raises(ValueError):
+        ledger.resolve_single_unknown_as_charged(
+            authorization_id=AUTHORIZATION,
+            step=AcceptanceStep.STEP_5,
+            reason_code="provider_outcome_unresolved",
+        )
+    with pytest.raises(AcceptanceLedgerError):
+        ledger.resolve_single_unknown_as_charged(
+            authorization_id=AUTHORIZATION,
+            step=AcceptanceStep.F010_REAL_PROVIDER_UAT,
+            reason_code="provider_outcome_unresolved",
+        )
 
 
 @pytest.mark.parametrize(
@@ -299,7 +397,7 @@ def test_a_new_python_process_observes_the_same_pending_reservation(
         f"ledger=AcceptanceLedger(database_path=Path({str(ledger.database_path)!r}), "
         f"allowed_root=Path({str(ledger.database_path.parent)!r})); "
         "ledger.reserve(authorization_id='child-synthetic', step=AcceptanceStep.STEP_5, "
-        "model='deepseek-v4-flash', reserved_micro_usd=1)"
+        "model='deepseek-flash', reserved_micro_usd=1)"
     )
 
     result = subprocess.run(

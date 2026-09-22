@@ -4,11 +4,11 @@
 
 当前任务与阶段见 [current-task.md](docs/project-management/current-task.md)，交付历史见 [任务档案](docs/archive/task-cards/)；此处不重复维护测试数和完成状态。项目规则与文档权威入口见 [AGENTS.md](AGENTS.md) 和 [docs/README.md](docs/README.md)。当前任务的 fake-only、真实 `.env`/模型限制与运行资源授权必须先核对，以下常规命令不自动构成当前 Step 的运行授权。
 
-当前统一验证命令：`uv run --frozen python scripts/quality.py`。它执行 Git ignore/敏感信息预检、lock、ruff、mypy、schema、Godot 导入与单测、9 个 F-002 健康 loopback、10 个对话 fake loopback、1 个三 NPC 切换 loopback、pytest 和最终策略复检；对话场景包含连续多轮与失败后的手动 Retry 恢复。每个质量子进程强制禁用 `.env`、剔除继承的 provider key 并固定 `LLM_PROVIDER=disabled`；对话集成仅使用本地 FastAPI 和 fake provider。需要 Godot 4.7.2，可通过 `CYBER_TOWN_GODOT` 指向 executable；Windows 默认也会检查本项目批准的便携路径。
+当前统一验证命令：`uv run --frozen python scripts/quality.py`。它执行 Git ignore/敏感信息预检、lock、ruff、mypy、schema、Godot 导入与单测、9 个 F-002 健康 loopback、10 个对话 fake loopback、诊断页与城镇各 1 个三 NPC loopback、pytest 和最终策略复检；对话场景包含连续多轮与失败后的手动 Retry 恢复。每个质量子进程强制禁用 `.env`、剔除继承的 provider key 并固定 `LLM_PROVIDER=disabled`；对话集成仅使用本地 FastAPI 和 fake provider。需要 Godot 4.7.2，可通过 `CYBER_TOWN_GODOT` 指向 executable；Windows 默认也会检查本项目批准的便携路径。
 
 ## 当前产品能力与架构
 
-Cyber Town 当前提供三名固定 NPC（Nia、Ivo、Rhea）的本地玩家对话闭环。Godot 负责场景、输入、NPC 选择、对话与关系展示；FastAPI 负责严格 API、请求编排和错误映射；应用层组合 persona、三元 scope 短期记忆、双元 scope 长期事实、确定性关系引擎、安全/限流/预算、重试/熔断和可观测性；DeepSeek 或 FakeProvider 只位于可替换适配器之后。
+Cyber Town 当前提供三名固定 NPC（Nia、Ivo、Rhea）的本地玩家对话闭环。Godot 主入口是一处可移动、碰撞、接近交互的暖色傍晚街区，并按 NPC 保存本次启动内的会话与六回合记录；旧连接页和独立对话页继续作为诊断入口。FastAPI 负责严格 API、请求编排和错误映射；应用层组合 persona、三元 scope 短期记忆、双元 scope 长期事实、确定性关系引擎、安全/限流/预算、重试/熔断和可观测性；DeepSeek 或 FakeProvider 只位于可替换适配器之后。
 
 模型回复和内部建议始终是不可信输入。记忆写入、关系分值、预算、权限、状态迁移和持久化由确定性服务及 SQLite 事务控制，模型不能直接修改游戏状态。业务状态、控制状态和可观测事件分别通过受限 SQLite repository 管理；自动化只使用隔离临时数据库，默认 provider 为 disabled。完整设计见 [架构](docs/architecture.md)、[Agent 边界](docs/agent-design.md)、[记忆设计](docs/memory-design.md)和[技术栈](docs/tech-stack.md)。
 
@@ -23,6 +23,14 @@ uv run --frozen python scripts/quality.py
 
 ## 本地诊断场景
 
+无需真实模型的基础可玩演示可使用独立端口 `18010` 启动；关闭 Godot 窗口后 fake 服务会退出并释放端口：
+
+```powershell
+.venv\Scripts\python.exe -B scripts\dialogue_integration.py --godot E:\Agent.tools\godot\4.7.2\Godot_v4.7.2-stable_win64_console.exe --town-demo
+```
+
+该模式只验证移动、交互、会话隔离、关系反馈和界面手感；固定离线回复不能替代真实模型的 Persona、记忆与关系体验验收。
+
 先在仓库根目录启动后端：
 
 ```powershell
@@ -35,7 +43,7 @@ uv run --frozen python -m cyber_town.api
 E:\Agent.tools\godot\4.7.2\Godot_v4.7.2-stable_win64_console.exe --path game
 ```
 
-默认请求 `GET http://127.0.0.1:8000/api/v1/health`，timeout 为 3 秒。场景只显示标题、连接状态和 Retry；失败后不自动重试。原生桌面客户端不需要 CORS。
+默认产品场景请求 `GET http://127.0.0.1:8000/api/v1/health`，timeout 为 3 秒；连接失败不阻止城镇探索，玩家可从顶部状态条手动重试。接近 NPC 后按 `E` 打开对话，`Ctrl+Enter` 发送，`Esc` 关闭；原生桌面客户端不需要 CORS。
 
 ## CI 边界
 

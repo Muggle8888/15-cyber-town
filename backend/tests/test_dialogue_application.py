@@ -90,7 +90,7 @@ def make_service(
         personas={"neon_guide": load_bundled_persona("nia_v1.json")},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=timeout_seconds,
@@ -118,7 +118,7 @@ def test_success_builds_frozen_prompt_and_strict_response() -> None:
     assert provider.call_count == 1
     assert provider.requests[0].system_prompt.startswith("You are Nia")
     assert provider.requests[0].user_message == make_request().message
-    assert provider.requests[0].model == "deepseek-v4-flash"
+    assert provider.requests[0].model == "deepseek-flash"
     assert provider.requests[0].temperature == 0.6
     assert provider.requests[0].max_tokens == 256
     assert provider.requests[0].timeout_seconds == pytest.approx(12.0, abs=0.001)

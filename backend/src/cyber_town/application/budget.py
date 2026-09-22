@@ -15,11 +15,13 @@ from uuid import UUID
 from cyber_town.application.observability import ProviderKind
 from cyber_town.application.provider import ProviderUsage
 from cyber_town.application.safety import BudgetOutcome
+from cyber_town.config import DEEPSEEK_MODEL
 
 BUDGET_POLICY_VERSION = "f-009-budget-policy-v1"
 SYNTHETIC_PRICING_VERSION = "f-009-synthetic-pricing-v1"
+DEEPSEEK_FLASH_PRICING_VERSION = "deepseek-v4.1-flash-2026-09-10-peak-v1"
 MAX_EXECUTION_ATTEMPTS = 2
-MAX_RESERVATION_MICRO_USD = 2_000
+MAX_RESERVATION_MICRO_USD = 11_000
 _VERSION_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _TAG_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -164,6 +166,15 @@ SYNTHETIC_PRICING_POLICY = PricingPolicy(
     input_micro_usd_per_million_tokens=1_000,
     output_micro_usd_per_million_tokens=2_000,
     max_reservation_micro_usd=2_000,
+)
+
+DEEPSEEK_FLASH_PEAK_PRICING_POLICY = PricingPolicy(
+    version=DEEPSEEK_FLASH_PRICING_VERSION,
+    provider_kind=ProviderKind.DEEPSEEK,
+    model=DEEPSEEK_MODEL,
+    input_micro_usd_per_million_tokens=300_000,
+    output_micro_usd_per_million_tokens=1_200_000,
+    max_reservation_micro_usd=10_138,
 )
 
 

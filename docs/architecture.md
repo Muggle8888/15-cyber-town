@@ -16,7 +16,7 @@ Godot 不直连 LLM 或数据库；领域层不直接依赖 FastAPI、Godot、�
 
 | 模块 | 职责 | 不负责 |
 | --- | --- | --- |
-| `game/` | 最小场景、固定 NPC 选择、对话 UI、只读关系快照与旧回调抑制 | 角色推理、持久化、好感度规则 |
+| `game/` | 城镇地图、移动/碰撞/摄像机、固定 NPC 互动、按 NPC 会话 UI、只读关系快照与旧回调抑制；连接页和独立对话页保留为诊断入口 | 角色推理、持久化、好感度规则 |
 | `backend/api/` | HTTP schema、错误码、关联 trace_id | 业务策略与 SQL 细节 |
 | `backend/application/` | 显式记住/忘记、双元长期检索、三元 scope 短期记忆、确定性关系、安全/限流/预算、成本归因、重试/熔断、可观测事件、统一 UTF-8 预算、并发与幂等 | SQL 细节、HTTP、Godot 或具体 SDK |
 | `backend/domain/` | Nia/Ivo/Rhea 固定版本 persona registry、结构化长期事实/scope/status、受限关系分类/状态机、provider-neutral DTO/错误和严格 loader | 网络、ORM、LLM SDK |

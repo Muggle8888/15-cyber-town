@@ -60,7 +60,7 @@ def completion(content: str = "Your saved game alias is BLUE-47.") -> ProviderCo
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=8, completion_tokens=4),
     )
 
@@ -83,7 +83,7 @@ def integrated_service(
         personas={persona.npc_id: persona},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

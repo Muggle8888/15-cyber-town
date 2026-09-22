@@ -2,6 +2,7 @@
 *.py text eol=lf
 *.md text eol=lf
 *.json text eol=lf
+*.sql text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
@@ -9,3 +10,4 @@
 *.gd text eol=lf
 *.tscn text eol=lf
 *.ps1 text eol=crlf
+game/assets/third_party/kenney_rpg_audio/License.txt whitespace=-blank-at-eol

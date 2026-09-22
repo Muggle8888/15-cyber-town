@@ -214,7 +214,7 @@ def memory_boundary_service(
         personas=load_bundled_personas() if known_persona else {},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,
@@ -400,7 +400,7 @@ def build(
                 tool_calls_present=False,
                 reasoning_content_present=False,
                 provider="fake",
-                model="deepseek-v4-flash",
+                model="deepseek-flash",
             )
             for _ in range(12)
         ]
@@ -410,7 +410,7 @@ def build(
         personas=load_bundled_personas(),
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,
@@ -422,7 +422,7 @@ def build(
             repository=control,
             scope_key=KEY,
             pricing_policy=PricingPolicy.zero_cost(
-                provider_kind=ProviderKind.FAKE, model="deepseek-v4-flash"
+                provider_kind=ProviderKind.FAKE, model="deepseek-flash"
             ),
         ),
         long_term_memory=LongTermMemoryService(repository=memory),
@@ -503,7 +503,7 @@ class PausedProvider(FakeProvider):
                     tool_calls_present=False,
                     reasoning_content_present=False,
                     provider="fake",
-                    model="deepseek-v4-flash",
+                    model="deepseek-flash",
                 )
                 for _ in range(5)
             ]

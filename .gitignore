@@ -36,3 +36,7 @@ reports/
 .idea/
 Thumbs.db
 .DS_Store
+__MACOSX/
+game/assets/third_party/noto_sans_cjk_sc/*.otf
+game/assets/third_party/tiny_rpg_fantasy/**/*.ase
+game/assets/third_party/tiny_rpg_fantasy/**/*.psd

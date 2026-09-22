@@ -81,7 +81,7 @@ def make_control(
             clock_ns=clock,
             pricing_policy=PricingPolicy.zero_cost(
                 provider_kind=ProviderKind.FAKE,
-                model="deepseek-v4-flash",
+                model="deepseek-flash",
             ),
         ),
         repository,

@@ -50,7 +50,7 @@ def provider_request(**overrides: Any) -> ProviderRequest:
     values: dict[str, Any] = {
         "system_prompt": "Frozen persona",
         "user_message": "Current message",
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-flash",
         "temperature": 0.6,
         "max_tokens": 256,
         "timeout_seconds": 12.0,
