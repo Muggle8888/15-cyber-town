@@ -2,6 +2,11 @@ extends SceneTree
 
 const TOWN_SCENE_PATH := "res://scenes/town.tscn"
 const EXPECTED_IDS := [&"neon_guide", &"signal_archivist", &"night_courier"]
+const EXPECTED_LANDMARK_IDS := [
+	&"twilight_guide_board",
+	&"signal_calibration_station",
+	&"rain_delivery_board",
+]
 
 var _failures: Array[String] = []
 
@@ -32,13 +37,22 @@ func _run() -> void:
 		"World/Nia",
 		"World/Ivo",
 		"World/Rhea",
+		"World/LandmarkTwilightGuideBoard",
+		"World/LandmarkSignalCalibrationStation",
+		"World/LandmarkRainDeliveryBoard",
 		"Ui/TownUi/HealthStatus",
 		"Ui/TownUi/InteractionPrompt",
 		"Ui/TownUi/DialoguePanel",
 		"Ui/TownUi/TopicMemoryPopup",
+		"Ui/TownUi/ObservationCard",
 	]:
 		_assert_true(town.has_node(path), "town node exists: %s" % path)
 	_assert_equal(town.approved_npc_ids(), EXPECTED_IDS, "three approved NPC ids remain isolated")
+	_assert_equal(
+		town.approved_landmark_ids(),
+		EXPECTED_LANDMARK_IDS,
+		"three approved landmark ids remain frozen",
+	)
 	var expected_topics := {
 		&"neon_guide": ["今晚的霓虹夜市有什么值得看的？", "霓虹夜市"],
 		&"signal_archivist": ["信号档案里有什么小镇故事？", "小镇故事"],
@@ -48,6 +62,32 @@ func _run() -> void:
 		var profile := town.topic_profile_for_testing(npc_id)
 		_assert_equal(profile["draft"], expected_topics[npc_id][0], "fixed topic draft: %s" % npc_id)
 		_assert_equal(profile["topic"], expected_topics[npc_id][1], "fixed memory topic: %s" % npc_id)
+	var expected_landmarks := {
+		&"twilight_guide_board": [
+			&"neon_guide",
+			"暮光导览牌",
+			"我在暮光导览牌上看到傍晚夜市灯带的标记，你会怎么带我逛？",
+		],
+		&"signal_calibration_station": [
+			&"signal_archivist",
+			"信号校准台",
+			"我在信号校准台看到一段重复的旧广播编号，你知道它的来历吗？",
+		],
+		&"rain_delivery_board": [
+			&"night_courier",
+			"雨棚投递板",
+			"我在雨棚投递板看到一条褪色的雨夜路线标记，它现在还在使用吗？",
+		],
+	}
+	for landmark_id: StringName in expected_landmarks:
+		var profile := town.landmark_profile_for_testing(landmark_id)
+		_assert_equal(profile["npc_id"], expected_landmarks[landmark_id][0], "landmark NPC mapping")
+		_assert_equal(profile["display_name"], expected_landmarks[landmark_id][1], "landmark name")
+		_assert_equal(
+			profile["discussion_draft"],
+			expected_landmarks[landmark_id][2],
+			"landmark discussion draft",
+		)
 
 	var player := town.player()
 	_assert_true(player != null, "player exists")
@@ -67,6 +107,53 @@ func _run() -> void:
 	if nearest != null:
 		_assert_equal(nearest.npc_id, "neon_guide", "nearest target selects Nia")
 	_assert_true(town.nearest_npc(Vector2(20, 500), 40.0) == null, "no target outside range")
+	var landmark_target := town.nearest_interaction_target(Vector2(142, 268), 60.0)
+	_assert_equal(landmark_target.get("kind"), &"landmark", "landmark can be nearest target")
+	_assert_equal(
+		landmark_target.get("id"),
+		&"twilight_guide_board",
+		"nearest landmark uses stable id",
+	)
+	var tie_target := town.nearest_interaction_target(Vector2(180.5, 268), 60.0)
+	_assert_equal(tie_target.get("kind"), &"npc", "NPC wins exact-distance target tie")
+	_assert_equal(tie_target.get("id"), &"neon_guide", "tie selects Nia deterministically")
+	_assert_true(
+		town.nearest_interaction_target(Vector2(20, 500), 40.0).is_empty(),
+		"no interaction target outside range",
+	)
+	_assert_false(
+		town.open_observation_for_testing(&"unknown_landmark"),
+		"unknown landmark fails closed",
+	)
+	_assert_true(
+		town.open_observation_for_testing(&"twilight_guide_board"),
+		"approved landmark opens observation",
+	)
+	_assert_true(town.is_observation_open(), "observation state opens")
+	_assert_true(player.movement_locked, "observation locks player movement")
+	_assert_false(
+		town.open_dialogue_for_testing(&"neon_guide"),
+		"dialogue cannot open over observation",
+	)
+	town.close_observation_for_testing()
+	_assert_false(
+		town.has_discovered_landmark(&"twilight_guide_board"),
+		"closing observation does not record discovery",
+	)
+	_assert_false(player.movement_locked, "closing observation restores movement")
+	_assert_true(
+		town.open_observation_for_testing(&"twilight_guide_board"),
+		"landmark observation reopens",
+	)
+	town.remember_observation_for_testing()
+	town.remember_observation_for_testing()
+	_assert_true(
+		town.has_discovered_landmark(&"twilight_guide_board"),
+		"remembering observation is idempotent",
+	)
+	_assert_true(town.has_discovery_for_npc(&"neon_guide"), "discovery maps to Nia")
+	_assert_false(town.has_discovery_for_npc(&"signal_archivist"), "discovery does not leak to Ivo")
+	town.close_observation_for_testing()
 	_assert_false(town.open_dialogue_for_testing(&"unknown_npc"), "unknown NPC fails closed")
 	_assert_true(town.open_dialogue_for_testing(&"neon_guide"), "approved NPC opens dialogue")
 	_assert_true(town.is_dialogue_open(), "dialogue state opens")
@@ -79,12 +166,36 @@ func _run() -> void:
 		_assert_true(topic_popup.visible, "topic and memory menu opens")
 		var topic_title := town.find_child("TopicMemoryTitle", true, false) as Label
 		_assert_true(topic_title != null and topic_title.text.contains("Nia"), "menu identifies active NPC")
+		var discovery_action := town.find_child("TopicAction6", true, false) as Button
+		_assert_true(
+			discovery_action != null and discovery_action.visible,
+			"Nia menu exposes recorded street discovery",
+		)
 	town.close_dialogue_for_testing()
 	_assert_false(town.is_dialogue_open(), "dialogue state closes")
 	_assert_false(player.movement_locked, "closing dialogue restores movement")
+	_assert_true(town.open_dialogue_for_testing(&"signal_archivist"), "Ivo opens for isolation check")
+	topic_button.pressed.emit()
+	var ivo_discovery_action := town.find_child("TopicAction6", true, false) as Button
+	_assert_true(
+		ivo_discovery_action != null and not ivo_discovery_action.visible,
+		"Nia discovery stays hidden from Ivo menu",
+	)
+	town.close_dialogue_for_testing()
 	await _test_dialogue_loop(town, player)
 	town.queue_free()
 	await process_frame
+	await process_frame
+	var restarted_town := packed.instantiate() as TownScene
+	root.add_child(restarted_town)
+	await process_frame
+	await process_frame
+	for landmark_id: StringName in EXPECTED_LANDMARK_IDS:
+		_assert_false(
+			restarted_town.has_discovered_landmark(landmark_id),
+			"fresh game scene clears startup-only discovery: %s" % landmark_id,
+		)
+	restarted_town.queue_free()
 	await process_frame
 	_finish()
 
@@ -120,7 +231,18 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 	_assert_true(input != null and send != null and retry != null, "dialogue controls are present")
 	if input == null or send == null or retry == null or status == null or history == null:
 		return
-	input.text = "记住广场的灯"
+	var topic_button := town.find_child("TopicMemoryButton", true, false) as Button
+	var discovery_action := town.find_child("TopicAction6", true, false) as Button
+	_assert_true(topic_button != null and discovery_action != null, "context draft controls are present")
+	if topic_button == null or discovery_action == null:
+		return
+	topic_button.pressed.emit()
+	_assert_true(discovery_action.visible, "recorded Nia discovery remains available")
+	discovery_action.pressed.emit()
+	var frozen_draft := "我在暮光导览牌上看到傍晚夜市灯带的标记，你会怎么带我逛？"
+	_assert_equal(input.text, frozen_draft, "discovery action fills visible draft without sending")
+	_assert_equal(bodies.size(), 0, "filling context draft performs no network request")
+	input.text += " 我还想知道路线。"
 	input.text_changed.emit(input.text)
 	_assert_false(send.disabled, "Send enables for valid input")
 	send.pressed.emit()
@@ -131,7 +253,12 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 	_assert_true(player.movement_locked, "player stays locked during request")
 
 	var first_payload: Dictionary = JSON.parse_string(bodies[0])
-	var success := _dialogue_success(first_payload, "Nia 记住了广场的灯。", "completed")
+	_assert_equal(
+		first_payload["message"],
+		frozen_draft + " 我还想知道路线。",
+		"edited visible context is the exact network message",
+	)
+	var success := _dialogue_success(first_payload, "Nia 指出了夜市灯带的路线。", "completed")
 	dialogue.handle_response(
 		dialogue.active_generation(),
 		HTTPRequest.RESULT_SUCCESS,
@@ -139,8 +266,8 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 		JSON.stringify(success).to_utf8_buffer(),
 	)
 	_assert_equal(dialogue.history().size(), 1, "successful turn enters Nia history")
-	_assert_true(history.text.contains("记住广场的灯"), "visible history contains player text")
-	_assert_true(history.text.contains("Nia 记住了"), "visible history contains NPC reply")
+	_assert_true(history.text.contains("我还想知道路线"), "visible history contains edited player text")
+	_assert_true(history.text.contains("夜市灯带的路线"), "visible history contains NPC reply")
 	town.close_dialogue_for_testing()
 	_assert_true(town.open_dialogue_for_testing(&"signal_archivist"), "Ivo opens after completion")
 	var ivo_conversation: String = dialogue.conversation_id()

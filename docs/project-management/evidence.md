@@ -1441,3 +1441,72 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - PR [#16](https://github.com/Muggle8888/15-cyber-town/pull/16) 以 `main` 为 base、`feat/f-011-npc-return-visit` 为 head 创建。首次 HEAD `5b42c529` 的 Quality run [`35708257630`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35708257630) 于 1 分 43 秒内完成并通过，PR 状态可合并。
 - 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-011-npc-return-visit.md` 和 `F-011-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #16 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
 - 归档提交将改变 PR HEAD，必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
+
+## 2026-09-22 F-012 任务卡规划依据
+
+- 用户明确请求规划下一阶段并建立新任务卡；该请求授权本地规划文档变更，不自动授权产品实现、测试、真实模型调用、分支创建或 Git 交付。
+- 开始前只读核验：当前分支 `main`，HEAD 与本地跟踪引用 `origin/main` 均为 `2bf190d5a7656bbfb2c2ae8415c67860b60cd5c5`，工作区干净。F-011 已由 PR #16 合并，合并后 Quality run `35709407498` 成功。
+- 静态代码核验确认当前 `TownScene` 只在 `E` 输入时选择最近 NPC；地图已有导览牌、信号亭和投递点等视觉地标，但没有地标交互或探索状态。F-011 已有按 NPC 固定菜单、自然语言草稿填入、请求锁定和会话隔离，可作为情境对话入口复用。
+- F-012 建议用三个固定、作者编写的地标观察连接探索与对话：玩家明确选择“记下话题”，随后在对应 NPC 菜单中选择“讨论街区发现”；发送载荷必须与输入框可见文本一致并允许编辑。Agent 只对玩家明确发送的情境文本作角色化回应，确定性 Godot 状态拥有地标、发现与映射，不向模型授予世界写入权限。
+- 本轮只建立候选任务卡和实施计划；没有运行程序或测试，静态检查不构成可玩验收。
+
+## 2026-09-22 F-012 批准与 Step 0 资源登记
+
+- 用户明确批准 F-012 任务卡、功能分支，以及 Step 0—4 的本地实现、Godot 视觉截图和离线/Fake 测试。授权不包含真实模型调用、`.env` 读取、commit、push、PR、合并、外部素材或资源删除。
+- 从 `main@2bf190d5a7656bbfb2c2ae8415c67860b60cd5c5` 创建本地分支 `feat/f-012-contextual-exploration`；创建时仅携带五份已批准但尚未提交的 F-012 规划文档改动。
+- Step 0 受版本控制的设计资源预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\contextual-exploration\design-spec.md` 与 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\contextual-exploration\godot-observation-normal-v1.png`。资源归属 `F-012 / Step 0`，只包含 UI 契约和项目场景渲染，不含密钥、真实对话或运行数据库；作为设计与视觉验收证据长期保留，Codex 不删除。
+- Step 0 只实现一个“暮光导览牌”观察卡正常状态并运行最小 Godot 导入、城镇测试和截图捕获。用户通过画面位置、大小、文字层级和可读性前，不进入 Step 1—4 完整交互。
+
+## 2026-09-22 F-012 Step 0 真实 Godot 视觉门禁待确认
+
+- 在 `TownScene` 中加入一个仅用于首状态验证的观察卡组件和 `--capture-observation-card` 捕获状态；观察卡显示类别、地标名、固定观察、对应 NPC 和两个操作。打开时锁定玩家，并保持地标交互提示不被最近 NPC 刷新覆盖。
+- 最终最小验证通过：Godot 4.7.2 无界面编辑器导入 exit 0；`game/tests/run_town_tests.gd` 输出 `TOWN_TESTS=PASS`；有渲染器的项目捕获输出 `TOWN_CAPTURE=PASS`。无 `.env` 读取、网络服务、Fake/真实 Provider 调用或数据库创建。
+- 截图路径为 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\contextual-exploration\godot-observation-normal-v1.png`，640×360、66,257 bytes、SHA256 `E9C30081985F54E9CC9F480719B9CD7E59822BDF1D29412050DBA40C73FE21BD`。捕获后无项目 Godot 残留进程。
+- 当前证据只证明观察卡正常状态可渲染、文字可见及既有城镇测试未回归；关闭、记下、三地标选择、发现隔离和情境草稿仍未实现。下一项只等待用户视觉确认，不提前进入 Step 1—4。
+
+## 2026-09-22 F-012 Step 4 最终视觉资源预登记
+
+- 用户已通过 Step 0 观察卡视觉门禁，允许按既定授权进入 Step 1—4。最终实机视觉复核预登记两张受版本控制的截图：`E:\Agent\comprehensive-cases\15-cyber-town\docs\design\contextual-exploration\godot-exploration-observation-v2.png` 与 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\contextual-exploration\godot-context-topic-menu-v1.png`。
+- 两项资源归属 `F-012 / Step 4`，只包含项目场景和 UI，不含真实对话、密钥或数据库；作为设计与用户验收证据长期保留，Codex 不删除。创建时必须由 Godot 4.7.2 按 640×360 逻辑视口实际渲染。
+
+## 2026-09-22 F-012 Step 1—4 本地实现与离线质量
+
+- 用户明确通过 Step 0 观察卡的位置、大小、文字和信息层级。随后完成三处固定地标实体、统一最近目标选择、NPC 平局优先、观察卡关闭/记录/重复查看、启动期发现隔离，以及对应 NPC 菜单的可见可编辑情境草稿；公开 API、Provider 请求 Schema、长期记忆和关系规则未修改。
+- Godot 城镇测试覆盖三个稳定地标、距离/平局、未知 ID 失败关闭、观察期移动锁定、取消不记录、记录幂等、NPC 映射隔离、可见文本即载荷、编辑后发送、精确重试复用和新场景清空发现，输出 `TOWN_TESTS=PASS`。
+- 独立 `127.0.0.1:18010` Fake FastAPI—Godot 回环通过：Nia 使用记录后的可见情境草稿并编辑发送，Ivo/Rhea 不继承该入口，三者继续拥有独立会话与 Persona；输出 `GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3`，测试后端口释放。
+- 统一质量入口 `uv run --frozen python scripts/quality.py` 一次通过：Ruff、strict mypy（137 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与城镇 Fake 回环、pytest `2138 passed, 969 skipped, 0 failed`、前后 ignore policy 与敏感信息检查全部成功。执行前后 `8000` 与 `18010` 均为空闲；未读取 `.env` 或调用真实 Provider。
+- 最终观察截图 `godot-exploration-observation-v2.png` 为 640×360、68,411 bytes、SHA256 `3473D931F3C4AFA3AECD8812184DE384234C3CDBDBC2A604F28982D8A47F3BA0`；情境菜单截图 `godot-context-topic-menu-v1.png` 为 640×360、73,625 bytes、SHA256 `9255EDF69F5328D7B2F550A9C639F3A6C2F353C88CD05B25B77F70356C011C9A`。两张均输出 `TOWN_CAPTURE=PASS`，捕获后无项目 Godot 残留进程。
+- 当前状态为 `PENDING_USER_UAT`。截图和自动测试不能证明三地标实际寻找、最近目标手感、观察卡操作和对话衔接已被用户接受；真实模型 UAT 与 Git 交付仍未授权。
+
+## 2026-09-22 F-012 用户 Fake 模式试玩通过
+
+- 用户在本轮 `scripts/dialogue_integration.py --town-demo` 启动的独立 `127.0.0.1:18010` Fake Provider 窗口中完成三地标实际试玩，并明确回复“试玩通过，已关闭”。该确认覆盖地标寻找、最近目标提示、观察卡关闭与记下、对应 NPC 的“讨论街区发现”入口、可见草稿编辑、跨 NPC 隔离以及整体功能与手感；用户未报告需要修复的问题。
+- Fake Provider 固定回复只能证明玩家流程、网络载荷和会话隔离，不能证明真实模型对地标情境的理解、三名 Persona/关系语气或无隐藏上下文边界。真实模型语义验收仍需独立授权。
+- 用户关闭后 runner 输出 `Fake-only playable town closed cleanly`；只读复核确认 `127.0.0.1:8000` 与 `127.0.0.1:18010` 均无监听，项目 Godot 进程为 0。未根据历史 PID 停止进程，也未删除资源。
+- 计划中的隔离资源 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-012` 与 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-012.sqlite3` 当前均不存在。任务状态推进为 `PENDING_REAL_PROVIDER_UAT`；未读取 `.env`、调用真实模型或执行 Git 交付。
+
+## 2026-09-22 F-012 真实模型 UAT 授权与离线门禁
+
+- 用户明确授权读取本地测试配置、补充 F-012 专用 runner，并在离线门禁通过后执行 `deepseek-flash` 真实 UAT：计划 6 次、最多 2 次语义补测、硬上限 8 次、SDK 自动重试 0、费用硬上限 USD 0.05。授权不包含 commit、push、PR、合并或资源删除。
+- 官方价格页在调用前重新核验：`deepseek-flash` 峰值缓存未命中输入 USD 0.30/M token、输出 USD 1.20/M token；现有 10,138 micro-USD 单次保守预留继续覆盖最大请求边界。
+- 新增 `AcceptanceStep.F012_REAL_PROVIDER_UAT`、F-012 脱敏 runner 及测试。Provider 计费前断言发送文本等于玩家可见草稿或明确 Persona 验收文本，长期事实、隐藏历史和回复风格均为空，关系阶段与 Persona 归属当前 NPC。
+- 定向离线测试 55 项通过。随后统一质量入口通过：Ruff、strict mypy（139 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与城镇 Fake 回环、pytest 2145 passed/969 skipped/0 failed，以及前后 ignore policy 与敏感信息检查。
+- 离线预检输出 `F012_REAL_UAT_OFFLINE_PREFLIGHT=PASS`；凭据预检输出 `F012_REAL_UAT_CREDENTIAL_PREFLIGHT=PASS`。凭据预检前后均未创建 UAT 资源，且未显示或记录凭据。
+
+## 2026-09-22 F-012 真实模型 UAT 完成
+
+- 执行前 `127.0.0.1:8000` 与 `127.0.0.1:18010` 均无监听，预登记的 F-012 隔离数据根与账本均不存在。真实 UAT 只启动一个受控批次，使用 `deepseek-flash`、SDK 自动重试 0、8 次调用与 USD 0.05 费用先到即停门禁。
+- Runner 输出 `F012_REAL_UAT=PASS`：6 项检查全部通过，实际 8 次调用并消耗 2 次允许的语义补测；累计 2539 输入 token、960 输出 token、1917 micro-USD（USD 0.001917），未决调用 0。
+- 验收覆盖 Nia、Ivo、Rhea 各一次可见地标情境理解和一次 Persona/关系阶段一致性。Provider 边界确认未注入长期事实、隐藏会话历史或回复风格；没有把地标状态或不可见提示交给模型。
+- 控制台和文档只记录状态、调用数、检查数、补测数、token、费用与时间；未记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
+- 执行后 `8000` 与 `18010` 仍为空闲。保留资源为 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-012`（2 个文件、266,240 bytes）和 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-012.sqlite3`（24,576 bytes），均非 reparse point；Codex 未删除或提交这些受忽略资源。
+- F-012 当前为 `READY_FOR_GIT_DELIVERY`。Git 提交、推送、PR、合并与资源处置仍未授权，任务在 Git 交付和合并后证据完成前不标记为已归档。
+
+## 2026-09-22 F-012 首次 PR CI 与待生效归档
+
+- 用户明确授权 F-012 的精确审查与暂存、commit、push、创建 PR、等待 CI、通过后合并并完成归档。授权不包含强推、分支删除、tag、发布或任何资源删除。
+- 交付前 fetch 后确认 `origin/main` 仍为 `2bf190d5a7656bbfb2c2ae8415c67860b60cd5c5`，与功能分支基线 0/0 分歧；远端为 `https://github.com/Muggle8888/15-cyber-town.git`。精确暂存 16 个文件，staged diff check、0 finding 敏感信息扫描和运行时资源排除门禁通过；F-012 UAT 数据与账本未进入索引。
+- 功能提交为 `d10be318b22fb14e2f43a379ae76f0e11d8963c8`。分支 `feat/f-012-contextual-exploration` 已推送，PR [#17](https://github.com/Muggle8888/15-cyber-town/pull/17) 以 `main` 为 base 创建。
+- 首次 HEAD `d10be31` 的 Quality run [`35720207231`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35720207231) 于 1 分 46 秒内完成并通过，PR 状态可合并。
+- 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-012-contextual-exploration.md` 和 `F-012-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #17 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
+- 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
