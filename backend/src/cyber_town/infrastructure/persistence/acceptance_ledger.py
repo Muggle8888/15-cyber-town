@@ -36,6 +36,7 @@ class AcceptanceStep(StrEnum):
     F010_REAL_PROVIDER_UAT = "f010_real_provider_uat"
     F011_REAL_PROVIDER_UAT = "f011_real_provider_uat"
     F012_REAL_PROVIDER_UAT = "f012_real_provider_uat"
+    F013_REAL_PROVIDER_UAT = "f013_real_provider_uat"
 
 
 _STEP_LIMITS: dict[AcceptanceStep, tuple[int, int]] = {
@@ -44,6 +45,7 @@ _STEP_LIMITS: dict[AcceptanceStep, tuple[int, int]] = {
     AcceptanceStep.F010_REAL_PROVIDER_UAT: (9, 50_000),
     AcceptanceStep.F011_REAL_PROVIDER_UAT: (8, 50_000),
     AcceptanceStep.F012_REAL_PROVIDER_UAT: (8, 50_000),
+    AcceptanceStep.F013_REAL_PROVIDER_UAT: (8, 50_000),
 }
 
 
@@ -97,7 +99,8 @@ class AcceptanceLedger:
                         "authorization_id TEXT NOT NULL, "
                         "step TEXT NOT NULL "
                         "CHECK(step IN ('step_5', 'step_7', 'f010_real_provider_uat', "
-                        "'f011_real_provider_uat', 'f012_real_provider_uat')), "
+                        "'f011_real_provider_uat', 'f012_real_provider_uat', "
+                        "'f013_real_provider_uat')), "
                         "model TEXT NOT NULL, "
                         "status TEXT NOT NULL "
                         "CHECK(status IN ('reserved', 'completed', 'unknown')), "

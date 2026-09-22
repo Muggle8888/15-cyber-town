@@ -1510,3 +1510,56 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 首次 HEAD `d10be31` 的 Quality run [`35720207231`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35720207231) 于 1 分 46 秒内完成并通过，PR 状态可合并。
 - 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-012-contextual-exploration.md` 和 `F-012-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #17 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
 - 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
+
+## 2026-09-22 F-013 批准与 Step 0 资源登记
+
+- 用户明确要求实施已确认的 `F-013 暮光失联信号` 计划，授权建立任务卡与本地功能分支，以及 Step 0—4 的本地代码、Godot 截图和离线/Fake 验证。真实模型调用、`.env` 读取、commit、push、PR、合并、外部素材与资源删除未获授权。
+- 从干净的 `main@5d60d3458e9ef67b2e5327f38cf661a7336ffddb` 创建本地分支 `feat/f-013-twilight-signal-event`。创建前主场景仍为 `res://scenes/town.tscn`，当前任务为无活动任务。
+- Step 0 受版本控制资源预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\twilight-lost-signal\design-spec.md` 与 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\twilight-lost-signal\godot-event-tracker-normal-v1.png`。资源归属 `F-013 / Step 0`，只包含作者编写的 UI 契约和项目场景截图，不含密钥、真实对话或运行数据库；作为设计证据长期保留，Codex 不删除。
+- Step 0 只实现一个 640×360 事件追踪卡展开正常状态及专用截图入口。用户通过位置、大小、文字和信息层级前，不进入状态机、跨重启存档、事件推进或关系文案扩展。
+
+## 2026-09-22 F-013 Step 0 真实 Godot 视觉门禁待确认
+
+- 在 `TownScene` 右上角加入固定 218×76 的事件追踪卡正常状态，显示 `街区事件 · 1/7`、`暮光失联信号`、当前 Nia 目标和明确的“收起”操作；专用参数为 `--capture-event-tracker`。首次渲染暴露 `PanelContainer` 自动扩张遮挡 Ivo 区域，随后在同一 Step 0 内改为固定尺寸 `Panel`，最终截图无该遮挡。
+- 最小验证通过：Godot 4.7.2 无界面编辑器导入 exit 0；`game/tests/run_town_tests.gd` 输出 `TOWN_TESTS=PASS`，覆盖追踪卡冻结文案及折叠/展开；有渲染器的捕获输出 `TOWN_CAPTURE=PASS`。未启动后端、读取 `.env`、调用 Fake/真实 Provider 或创建数据库。
+- 截图路径为 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\twilight-lost-signal\godot-event-tracker-normal-v1.png`，640×360、63,904 bytes、SHA256 `BA08D8260B08A6EBF0AC114ED8C0DEE2791B5B6AAEAA0E9497E5ED00DCBFFE54`。捕获后没有属于本项目的 Godot 残留进程。
+- 当前证据只证明追踪卡正常状态、基础折叠控件和既有城镇测试未回归；事件状态机、存档、地标线索、四次事件对话和关系文案尚未实现。下一项只等待用户视觉确认。
+
+## 2026-09-22 F-013 Step 0 视觉通过与 Step 1—4 资源登记
+
+- 用户明确通过事件追踪卡的位置、大小、文字和信息层级，Step 0 视觉门禁完成；既有 Step 1—4 本地实现、Godot 截图及离线/Fake 验证授权开始生效。
+- 最终视觉资源预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\twilight-lost-signal\godot-event-dialogue-v2.png` 与 `E:\Agent\comprehensive-cases\15-cyber-town\docs\design\twilight-lost-signal\godot-event-complete-v1.png`。两者归属 F-013 Step 4，仅包含项目 UI 与作者文本，长期保留且不含真实模型回复、密钥或数据库。
+- 确定性测试存档预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\game\.godot\f013-event-state-test.json` 与 `E:\Agent\comprehensive-cases\15-cyber-town\game\.godot\f013-event-state-fake.json`。两者位于既有被忽略的 Godot 缓存目录，只包含合成事件 ID、阶段和线索，不包含玩家文本、模型回复或密钥；测试可覆盖写入并保留，Codex 不删除。
+
+## 2026-09-22 F-013 Step 1—4 本地实现与离线质量
+
+- 新增独立 `TwilightSignalEventState`，固定 `twilight_lost_signal_v1` 与九个内部状态（含未开始、七个玩家阶段和完成），使用版本化 JSON 保存阶段、线索和完成状态。损坏、越界或未知版本只恢复本事件并给出非阻断提示，不影响启动、关系或后端长期记忆。
+- 城镇接入右上角事件追踪、三处当前目标地标线索、四次正确 NPC 事件草稿、关系阶段文案和完成后的二次确认重置。事件草稿对玩家可见且可编辑；网络仍只发送 Dialogue v1 五字段，不发送事件 ID、步骤或隐藏上下文。
+- 请求开始时冻结步骤、NPC 与 request ID；只有当前步骤正确 NPC 的 `completed` 回复推进。普通聊天、`degraded`、超时、失败、未来地标、其他 NPC 和旧请求均不推进；手动重试复用原请求与可见载荷。
+- `game/tests/run_town_tests.gd` 输出 `TOWN_TESTS=PASS`，覆盖损坏存档、跨控制器恢复、完整七阶段、未来地标阻断、降级、超时与精确重试、四种关系文案、跨场景完成恢复和确认重置。
+- 独立 `127.0.0.1:18010` Fake FastAPI—Godot 回环完成原三 NPC 会话隔离和 F-013 四次对话/三处线索流程，输出 `GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3 event=completed`；执行后端口释放。
+- 统一质量入口 `uv run --frozen python scripts/quality.py` 在执行前确认 `8000` 与 `18010` 空闲，并一次通过：Ruff、strict mypy（139 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与城镇 Fake 回环、pytest `2145 passed, 969 skipped, 0 failed`、前后 ignore policy 与敏感信息检查全部成功。skip 均为既有历史诊断根或 F-009 原生环境门禁。
+- 最终事件对话截图 `godot-event-dialogue-v2.png` 为 640×360、76,971 bytes、SHA256 `A2D6F31E2C25067331B05A072D1C9F4F2460886D10871D91854AA5903E681E5E`；完成截图 `godot-event-complete-v1.png` 为 640×360、62,804 bytes、SHA256 `C1F4FC3BC92358EE26CE9E030100CAFAF0681D9DC5C7D4C6F5733A26DAC55D48`。两张均输出 `TOWN_CAPTURE=PASS`。
+- 当前状态为 `PENDING_USER_UAT`。自动与 Fake 证据不能替代玩家对目标清晰度、流程节奏、跨重启恢复和关系文案的试玩确认；未读取 `.env`、调用真实 Provider 或执行 Git 交付。
+
+## 2026-09-22 F-013 用户跨重启试玩通过与后续授权
+
+- 用户先在 `guide_clue` 前关闭首次 Fake 试玩，再启动第二次试玩；Godot 从版本化存档恢复事件阶段。用户随后按完整验收流程确认“完整试玩通过，已关闭”，覆盖三处地标、四次 NPC 事件对话、完成卡、重温取消、确认重置及重新调查。
+- Fake 固定回复只证明流程、状态和手感，不替代四次事件语义、Persona 与关系语气的真实模型验证。
+- 两次关闭图形窗口后，Windows Godot console 包装进程均未自行退出，导致 runner 与 `18010` 残留；均只通过各自原始 PTY 会话中断，端口随后释放。重复触发原因收敛为 demo 使用 console 包装可执行文件；修复规则为优先启动同目录已核验 GUI 可执行文件，使窗口关闭直接结束被等待进程。
+- 用户在助手明确列出“用户完整试玩、真实模型 UAT、Git 交付”三项剩余内容后要求继续完成剩余内容，因此授权 F-013 既定的 6 次计划、2 次语义补测、8 次硬上限、SDK 自动重试 0、USD 0.05 费用上限及完成后的精确 Git 交付。授权不包含资源删除、强推、分支删除、tag、发布或扩大功能范围。
+- 真实 UAT 隔离资源预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-013` 与 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-013.sqlite3`。前者只包含低敏感验收状态，后者只保存调用数、token、费用、时间戳和结算状态；二者受 Git ignore，Codex 保留且不删除。
+
+## 2026-09-22 F-013 真实模型离线预检发现与最小修复
+
+- F-013 脱敏 runner 首轮 Fake 集成在 Rhea 主线文本处得到 `degraded/local-fallback`，Provider 调用数停在 2。定位确认冻结草稿中的“还记得”触发现有长期记忆询问路由，使该主线对话未到达 Provider。
+- 将玩家可见草稿从“你还记得这条路线吗？”调整为语义等价的“这条路线现在如何核对？”。该修复只消除与 F-011 记忆命令的词面冲突，不改变事件阶段、NPC、公开 API、隐藏上下文或完成判定。
+
+## 2026-09-22 F-013 最终离线质量与真实模型 UAT
+
+- demo 收口修复、F-013 账本、脱敏 runner 和语义冲突修复的定向测试为 `60 passed`；Godot 城镇测试输出 `TOWN_TESTS=PASS`。更新后的统一质量一次通过：Ruff、strict mypy（142 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与完整城镇事件回环、pytest `2155 passed, 969 skipped, 0 failed`、前后 ignore policy 和敏感信息检查。
+- 调用前从 DeepSeek 官方价格页核验 `deepseek-flash` 高峰缓存未命中输入 USD 0.30/M token、输出 USD 1.20/M token；产品仍提示价格可能调整。离线预检与凭据预检均通过，SDK 自动重试保持 0。
+- 首次 `--run` 在 Provider 初始化前因继承的 SOCKS `ALL_PROXY` 与未安装 `socksio` 返回 `ImportError`。metadata-only 账本确认调用 0、未决 0、token 0、费用 0；随后只在 UAT 子进程移除 `ALL_PROXY`，保留 HTTP/HTTPS 代理，未安装依赖、修改系统或 `.env`。
+- 唯一实际 Provider 批次输出 `F013_REAL_UAT=PASS`：6 次调用、6 项检查、0 次语义补测、1861 输入 token、631 输出 token、1318 micro-USD（USD 0.001318）、未决 0。检查覆盖 Nia 开场、Ivo 核对、Rhea 路线、Nia 归档四次主线语义，以及 Nia acquaintance 与 Rhea trusted_ally 下的 Persona/关系一致性。
+- runner 在计费前断言玩家可见文本、NPC、Persona 和关系阶段归属，长期事实、隐藏历史和回复风格均为空；控制台、台账与文档不记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
+- 执行后 `8000` 与 `18010` 均空闲。保留资源为 `data/uat/f-013`（2 个文件、266,240 bytes）与 `data/acceptance-ledgers/f-013.sqlite3`（24,576 bytes），均非 reparse point并受 Git ignore；Codex 未删除资源。当前状态为 `READY_FOR_GIT_DELIVERY`。

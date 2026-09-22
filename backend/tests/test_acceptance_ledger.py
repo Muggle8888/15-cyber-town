@@ -237,6 +237,28 @@ def test_f012_real_provider_uat_cannot_exceed_eight_calls(
     assert ledger.summary().total_calls == 8
 
 
+def test_f013_real_provider_uat_cannot_exceed_eight_calls(
+    ledger: AcceptanceLedger,
+) -> None:
+    for _ in range(8):
+        settle(
+            ledger,
+            reserve(
+                ledger,
+                step=AcceptanceStep.F013_REAL_PROVIDER_UAT,
+                reserved_micro_usd=10_138,
+            ),
+        )
+
+    with pytest.raises(AcceptanceBudgetError):
+        reserve(
+            ledger,
+            step=AcceptanceStep.F013_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
+    assert ledger.summary().total_calls == 8
+
+
 def test_step_five_cost_limit_is_enforced_before_provider_dispatch(
     ledger: AcceptanceLedger,
 ) -> None:
@@ -310,6 +332,25 @@ def test_f012_real_provider_uat_cost_limit_is_enforced_before_dispatch(
         reserve(
             ledger,
             step=AcceptanceStep.F012_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
+
+
+def test_f013_real_provider_uat_cost_limit_is_enforced_before_dispatch(
+    ledger: AcceptanceLedger,
+) -> None:
+    for _ in range(4):
+        reservation = reserve(
+            ledger,
+            step=AcceptanceStep.F013_REAL_PROVIDER_UAT,
+            reserved_micro_usd=10_138,
+        )
+        settle(ledger, reservation, cost=10_000)
+
+    with pytest.raises(AcceptanceBudgetError):
+        reserve(
+            ledger,
+            step=AcceptanceStep.F013_REAL_PROVIDER_UAT,
             reserved_micro_usd=10_138,
         )
 

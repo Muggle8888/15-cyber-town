@@ -1,6 +1,7 @@
 extends SceneTree
 
 const TOWN_SCENE_PATH := "res://scenes/town.tscn"
+const EVENT_TEST_SAVE_PATH := "res://.godot/f013-event-state-test.json"
 const EXPECTED_IDS := [&"neon_guide", &"signal_archivist", &"night_courier"]
 const EXPECTED_LANDMARK_IDS := [
 	&"twilight_guide_board",
@@ -16,6 +17,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	ProjectSettings.set_setting("cyber_town/testing/event_save_path", EVENT_TEST_SAVE_PATH)
+	_test_event_state_persistence()
 	_assert_equal(
 		ProjectSettings.get_setting("application/run/main_scene"),
 		TOWN_SCENE_PATH,
@@ -41,12 +44,60 @@ func _run() -> void:
 		"World/LandmarkSignalCalibrationStation",
 		"World/LandmarkRainDeliveryBoard",
 		"Ui/TownUi/HealthStatus",
+		"Ui/TownUi/EventTracker",
 		"Ui/TownUi/InteractionPrompt",
 		"Ui/TownUi/DialoguePanel",
 		"Ui/TownUi/TopicMemoryPopup",
 		"Ui/TownUi/ObservationCard",
 	]:
 		_assert_true(town.has_node(path), "town node exists: %s" % path)
+	var event_tracker := town.find_child("EventTracker", true, false) as Panel
+	var event_body := town.find_child("EventTrackerBody", true, false) as Control
+	var event_toggle := town.find_child("EventTrackerToggle", true, false) as Button
+	var event_progress := town.find_child("EventProgress", true, false) as Label
+	var event_title := town.find_child("EventTitle", true, false) as Label
+	var event_objective := town.find_child("EventObjective", true, false) as Label
+	_assert_true(
+		event_tracker != null and event_body != null and event_toggle != null,
+		"event tracker controls exist",
+	)
+	_assert_true(
+		event_progress != null and event_progress.text == "街区事件 · 1/7",
+		"event tracker shows frozen progress",
+	)
+	_assert_true(
+		event_title != null and event_title.text == "暮光失联信号",
+		"event tracker shows frozen title",
+	)
+	_assert_true(
+		event_objective != null and event_objective.text.contains("Nia"),
+		"event tracker shows the current target",
+	)
+	var initial_event_profile := town.event_profile_for_testing()
+	var relationship_drafts: Dictionary = {}
+	var completion_lines: Dictionary = {}
+	for relationship_stage: String in ["newcomer", "acquaintance", "friend", "trusted_ally"]:
+		var relationship_draft: String = town._event_draft_for_stage(
+			initial_event_profile,
+			relationship_stage,
+		)
+		_assert_true(
+			relationship_draft.contains("夜市灯带"),
+			"relationship event draft preserves the authored clue: %s" % relationship_stage,
+		)
+		relationship_drafts[relationship_draft] = true
+		completion_lines[town._event_completion_line_for_stage(relationship_stage)] = true
+	_assert_equal(
+		relationship_drafts.size(),
+		4,
+		"four relationship stages produce distinct event drafts",
+	)
+	_assert_equal(completion_lines.size(), 4, "four relationship stages produce distinct completion lines")
+	if event_body != null and event_toggle != null:
+		event_toggle.pressed.emit()
+		_assert_false(event_body.visible, "event tracker collapses")
+		event_toggle.pressed.emit()
+		_assert_true(event_body.visible, "event tracker expands")
 	_assert_equal(town.approved_npc_ids(), EXPECTED_IDS, "three approved NPC ids remain isolated")
 	_assert_equal(
 		town.approved_landmark_ids(),
@@ -195,9 +246,74 @@ func _run() -> void:
 			restarted_town.has_discovered_landmark(landmark_id),
 			"fresh game scene clears startup-only discovery: %s" % landmark_id,
 		)
+	_assert_equal(
+		restarted_town.event_stage_for_testing(),
+		&"completed",
+		"event completion persists across a fresh town scene",
+	)
+	var replay_toggle := restarted_town.find_child("EventTrackerToggle", true, false) as Button
+	var reset_panel := restarted_town.find_child("EventResetConfirmation", true, false) as Panel
+	var reset_cancel := restarted_town.find_child("EventResetCancelButton", true, false) as Button
+	var reset_confirm := restarted_town.find_child("EventResetConfirmButton", true, false) as Button
+	_assert_true(
+		replay_toggle != null and reset_panel != null and reset_cancel != null and reset_confirm != null,
+		"completed event exposes reset confirmation controls",
+	)
+	if replay_toggle != null and reset_panel != null and reset_cancel != null and reset_confirm != null:
+		replay_toggle.pressed.emit()
+		_assert_true(reset_panel.visible, "replay action opens a second confirmation")
+		reset_cancel.pressed.emit()
+		_assert_false(reset_panel.visible, "event reset can be cancelled")
+		replay_toggle.pressed.emit()
+		reset_confirm.pressed.emit()
+		_assert_equal(
+			restarted_town.event_stage_for_testing(),
+			&"nia_intro",
+			"confirmed replay resets only the event progression",
+		)
 	restarted_town.queue_free()
 	await process_frame
 	_finish()
+
+
+func _test_event_state_persistence() -> void:
+	var invalid_file := FileAccess.open(EVENT_TEST_SAVE_PATH, FileAccess.WRITE)
+	_assert_true(invalid_file != null, "event test save is writable")
+	if invalid_file != null:
+		invalid_file.store_string("{invalid-json")
+		invalid_file.close()
+	var recovered := TwilightSignalEventState.new(EVENT_TEST_SAVE_PATH)
+	var warning: String = recovered.load_or_start()
+	_assert_true(not warning.is_empty(), "invalid event save produces a non-blocking warning")
+	_assert_equal(recovered.stage, &"nia_intro", "invalid event save recovers to the first step")
+	_assert_false(
+		recovered.advance_dialogue(&"signal_archivist", "completed"),
+		"wrong NPC cannot advance an event dialogue step",
+	)
+	_assert_false(
+		recovered.advance_dialogue(&"neon_guide", "degraded"),
+		"degraded dialogue cannot advance the event",
+	)
+	_assert_true(
+		recovered.advance_dialogue(&"neon_guide", "completed"),
+		"matching completed dialogue advances the event",
+	)
+	_assert_false(
+		recovered.record_landmark(&"signal_calibration_station"),
+		"future landmark cannot skip the current clue",
+	)
+	_assert_true(
+		recovered.record_landmark(&"twilight_guide_board"),
+		"matching landmark records and advances the event",
+	)
+	var restored := TwilightSignalEventState.new(EVENT_TEST_SAVE_PATH)
+	_assert_equal(restored.load_or_start(), "", "valid event save reloads without warning")
+	_assert_equal(restored.stage, &"ivo_analysis", "event stage survives controller recreation")
+	_assert_true(
+		&"twilight_guide_board" in restored.recorded_clues,
+		"recorded event clue survives controller recreation",
+	)
+	_assert_true(restored.reset_event(), "event state can be reset deterministically")
 
 
 func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
@@ -331,6 +447,7 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 	_assert_equal(relationship_label.text, "关系 · 暂不可用", "failed refresh hides stale stage")
 	town.close_dialogue_for_testing()
 	_test_guided_memory_action(town, dialogue, bodies)
+	_test_twilight_signal_event(town, dialogue, bodies)
 
 
 func _test_guided_memory_action(town: TownScene, dialogue: Node, bodies: Array[String]) -> void:
@@ -413,6 +530,137 @@ func _test_guided_memory_action(town: TownScene, dialogue: Node, bodies: Array[S
 	)
 	_assert_true(history.text.contains("系统：Rhea 已记下"), "history renders a system confirmation")
 	_assert_false(history.text.contains("favorite_cyber_town_topic"), "rendered history hides fact key")
+	town.close_dialogue_for_testing()
+
+
+func _test_twilight_signal_event(town: TownScene, dialogue: Node, bodies: Array[String]) -> void:
+	_assert_equal(town.event_stage_for_testing(), &"nia_intro", "event starts at the Nia step")
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_intro", "degraded")
+	_assert_equal(town.event_stage_for_testing(), &"nia_intro", "degraded event reply does not advance")
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_intro", "completed")
+	_assert_equal(town.event_stage_for_testing(), &"guide_clue", "Nia completion unlocks guide clue")
+
+	_assert_true(
+		town.open_observation_for_testing(&"signal_calibration_station"),
+		"future landmark remains available as a normal observation",
+	)
+	town.remember_observation_for_testing()
+	_assert_equal(town.event_stage_for_testing(), &"guide_clue", "future landmark cannot skip event stage")
+	town.close_observation_for_testing()
+	_assert_true(
+		town.open_observation_for_testing(&"twilight_guide_board"),
+		"current guide landmark opens",
+	)
+	var event_clue_button := town.find_child("ObservationRememberButton", true, false) as Button
+	_assert_true(
+		event_clue_button != null and event_clue_button.text == "记录事件线索",
+		"current landmark exposes the explicit event action",
+	)
+	town.remember_observation_for_testing()
+	_assert_equal(town.event_stage_for_testing(), &"ivo_analysis", "guide clue advances to Ivo")
+	town.close_observation_for_testing()
+
+	_complete_event_dialogue(town, dialogue, bodies, &"signal_archivist", &"ivo_analysis", "timeout")
+	_assert_equal(town.event_stage_for_testing(), &"signal_clue", "retried Ivo reply advances event")
+	_assert_true(
+		town.open_observation_for_testing(&"signal_calibration_station"),
+		"current signal landmark opens",
+	)
+	town.remember_observation_for_testing()
+	_assert_equal(town.event_stage_for_testing(), &"rhea_route", "signal clue advances to Rhea")
+	town.close_observation_for_testing()
+
+	_complete_event_dialogue(town, dialogue, bodies, &"night_courier", &"rhea_route", "completed")
+	_assert_equal(town.event_stage_for_testing(), &"delivery_clue", "Rhea unlocks delivery clue")
+	_assert_true(
+		town.open_observation_for_testing(&"rain_delivery_board"),
+		"current delivery landmark opens",
+	)
+	town.remember_observation_for_testing()
+	_assert_equal(town.event_stage_for_testing(), &"nia_conclusion", "delivery clue returns to Nia")
+	town.close_observation_for_testing()
+
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_conclusion", "completed")
+	_assert_equal(town.event_stage_for_testing(), &"completed", "final Nia reply completes the event")
+	var event_progress := town.find_child("EventProgress", true, false) as Label
+	var event_objective := town.find_child("EventObjective", true, false) as Label
+	_assert_true(
+		event_progress != null and event_progress.text == "街区事件 · 7/7",
+		"completed event renders final progress",
+	)
+	_assert_true(
+		event_objective != null and event_objective.text.contains("归档"),
+		"completed event renders a deterministic conclusion",
+	)
+
+
+func _complete_event_dialogue(
+	town: TownScene,
+	dialogue: Node,
+	bodies: Array[String],
+	npc_id: StringName,
+	expected_stage: StringName,
+	mode: String,
+) -> void:
+	_assert_equal(town.event_stage_for_testing(), expected_stage, "event helper starts at expected stage")
+	_assert_true(town.open_dialogue_for_testing(npc_id), "event target NPC opens: %s" % npc_id)
+	var topic_button := town.find_child("TopicMemoryButton", true, false) as Button
+	var event_button := town.find_child("TopicAction7", true, false) as Button
+	var input := town.find_child("MessageInput", true, false) as LineEdit
+	var send := town.find_child("SendButton", true, false) as Button
+	var retry := town.find_child("RetryButton", true, false) as Button
+	var status := town.find_child("DialogueStatus", true, false) as Label
+	_assert_true(
+		topic_button != null and event_button != null and input != null and send != null,
+		"event dialogue controls are present",
+	)
+	if (
+		topic_button == null
+		or event_button == null
+		or input == null
+		or send == null
+		or retry == null
+		or status == null
+	):
+		return
+	var body_count := bodies.size()
+	topic_button.pressed.emit()
+	_assert_true(event_button.visible, "event action is visible only for the current NPC")
+	event_button.pressed.emit()
+	_assert_equal(bodies.size(), body_count, "event action fills a draft without sending")
+	_assert_true(not input.text.is_empty(), "event action fills visible text")
+	input.text += " 我想确认这条线索。"
+	input.text_changed.emit(input.text)
+	var visible_message := input.text
+	send.pressed.emit()
+	var payload_json := bodies[-1]
+	var payload: Dictionary = JSON.parse_string(payload_json)
+	_assert_equal(payload.size(), 5, "event request keeps the public Dialogue v1 schema")
+	_assert_false(payload.has("event_id"), "event step is never sent as hidden API context")
+	_assert_equal(payload["npc_id"], String(npc_id), "event payload uses the current NPC")
+	_assert_equal(payload["message"], visible_message, "event payload equals edited visible text")
+	if mode == "timeout":
+		dialogue.handle_response(
+			dialogue.active_generation(),
+			HTTPRequest.RESULT_TIMEOUT,
+			0,
+			PackedByteArray(),
+		)
+		_assert_true(retry.visible and not retry.disabled, "event timeout exposes manual retry")
+		retry.pressed.emit()
+		_assert_equal(bodies[-1], payload_json, "event retry reuses the byte-identical payload")
+		mode = "completed"
+	var response := _dialogue_success(payload, "合成事件回复。", mode)
+	dialogue.handle_response(
+		dialogue.active_generation(),
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		JSON.stringify(response).to_utf8_buffer(),
+	)
+	if mode == "degraded":
+		_assert_true(status.text.contains("事件尚未推进"), "degraded event reply explains no progress")
+	else:
+		_assert_true(status.text.contains("事件已推进"), "completed event reply explains progress")
 	town.close_dialogue_for_testing()
 
 
