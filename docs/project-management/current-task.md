@@ -1,4 +1,4 @@
-# 当前任务：F-010 Cyber Town 基础可玩版本
+# 当前任务：无活动任务
 
 更新时间：2026-09-22
 
@@ -6,92 +6,80 @@
 
 | 判断项 | 当前唯一口径 |
 | --- | --- |
-| 当前任务卡 | `F-010 Cyber Town 基础可玩版本` |
-| 路线图任务状态 | `ACTIVE` |
-| 当前所在步骤 | Step 5：Fake、用户试玩、统一质量与真实模型 UAT 均通过，进入 Git 交付 |
-| 当前业务闭环 | 将现有 Agent 后端和低保真表单转化为可移动、可接近三名 NPC 并对话的 2D 小街区 |
-| 当前执行状态 | `READY_FOR_GIT_DELIVERY` |
-| 已完成到哪里 | v2 视觉门禁、城镇闭环、Fake/用户试玩、统一质量（2115 passed）与 9 次硬上限内真实模型 UAT 全部通过 |
-| 精确阻塞点 | 无产品或验收阻塞；待完成提交、推送、PR、远端 CI 和合并记录 |
-| 当前未执行 | Git 提交、推送、PR、远端 CI 和合并 |
-| 唯一最小下一项 | 审查最终差异后完成 F-010 Git 交付 |
-| 下一动作类型 | `DELIVER_F010_GIT` |
-| 授权状态 | 用户于 2026-09-21 批准视觉基线、`F-010` 及本地实现；2026-09-22 明确批准本轮真实模型 UAT；Git 交付仍未授权 |
-| 外部调用 | 1 次内置图像生成；官方 CC0/OFL 素材下载；F-010 真实 UAT 共 9 次（8 次官方 usage、1 次未知结果按最大预留保守计费） |
-| 当前分支 | `feat/playable-town`，从 `2666f54180f6f31c79de785f38a6ac64e58ea85b` 创建 |
-| 环境与副作用 | 已按授权读取本地测试配置但未输出密钥；隔离 UAT 与台账资源保留在受忽略 `data/` 路径；未删除、重置或清理资源 |
-| 当前证据 | [视觉基线、获批 v2 与交互版 v3 截图](../design/playable-town/visual-baseline.md) |
+| 当前任务卡 | 无；最近完成任务为 `F-010 Cyber Town 基础可玩版本` |
+| 路线图任务状态 | `COMPLETE` |
+| 当前所在步骤 | 无活动 Step；F-010 已完成验收、PR、合并与合并后 `main` CI |
+| 当前业务闭环 | 玩家可在暖色傍晚街区移动、接近 Nia、Ivo、Rhea，与既有 Agent、记忆和关系系统对话后继续探索 |
+| 当前执行状态 | `COMPLETE` |
+| 已完成到哪里 | PR #14 已合并为 `49598b6c1962c528d32a63829e82ea6832f1c623`；合并后 Quality run `35691653263` 成功 |
+| 精确阻塞点 | 无 |
+| 本阶段不执行 | 新功能、下一张任务卡、发布、tag、部署、删除资源或删除分支 |
+| 唯一最小下一项 | 由用户选择下一张任务卡；候选 `NPC-RETURN-VISIT` 仍只是未批准的规划代号 |
+| 授权状态 | `CONSUMED`；F-010 开发、测试、真实模型 UAT、Git 交付与合并授权均已消费 |
+| 环境与副作用 | 本地 `main` 已快进到合并提交；`8000`、`18010` 无监听；隔离 UAT 数据和验收账本继续保留在 Git 忽略路径 |
+| 当前证据 | [evidence.md：F-010 Git 交付与合并后收口](evidence.md#2026-09-22-f-010-git-交付与合并后收口) |
 
-## 任务合同
+## 当前执行合同
 
 ```yaml
-task_id: F-010
-working_id: PLAYABLE-TOWN
-task_name: Cyber Town 基础可玩版本
-roadmap_status: ACTIVE
-step: git_delivery
-execution_status: READY_FOR_GIT_DELIVERY
-current_goal: 完成F-010提交、PR、CI与合并交付
-completed_checkpoint: visual and playable loop, fake and user UAT, full quality 2115 passed, real UAT passed at 9-call hard cap
-blocked_at: none
-next_action: 审查最终差异并完成Git交付
-next_action_type: DELIVER_F010_GIT
+task_id: null
+task_name: 无活动任务
+last_completed_task: F-010 Cyber Town 基础可玩版本
+roadmap_status: COMPLETE
+step: "none / F-010 delivered, merged and archived"
+execution_status: COMPLETE
+current_goal: 无；等待用户选择新的任务卡
+completed_checkpoint: "PR #14 merged as 49598b6c1962c528d32a63829e82ea6832f1c623; post-merge Quality run 35691653263 passed"
+blocked_at: null
+next_action: 由用户选择新的任务卡；NPC-RETURN-VISIT 尚未批准
+next_action_type: SELECT_TASK
 authorization:
-  plan_implementation: authorized_by_user_2026_09_21
-  visual_preproduction: consumed
-  game_code_changes: authorized_by_user_2026_09_21
-  local_tests: authorized_for_f010
-  real_provider_calls: authorized_by_user_2026_09_22_7_planned_9_hard_cap_usd_0_05
-  git_commit_push_pr_merge: unauthorized
-external_calls:
-  image_generation: 1
-  real_provider_completed_with_usage: 8
-  real_provider_unknown_conservatively_charged: 1
-  real_provider_total: 9
-branch:
-  name: feat/playable-town
-  base: 2666f54180f6f31c79de785f38a6ac64e58ea85b
-design:
-  baseline: docs/design/playable-town/visual-baseline.md
-  concept: docs/design/playable-town/concept-v1.png
-  approved_capture: docs/design/playable-town/godot-normal-v2.png
-  current_capture: docs/design/playable-town/godot-interactive-v3.png
-  status: FIRST_VISUAL_GATE_APPROVED
+  state: CONSUMED
+  basis: F-010 开发、验收、真实模型 UAT、交付、CI 与合并授权已完成消费；不得据此开始新任务
+validation:
+  local_quality: "2115 passed, 969 skipped, 0 failed"
+  fake_provider: passed
+  user_gameplay_uat: passed
+  real_provider_uat: "passed at 9-call hard cap; conservative cost USD 0.011130"
+  pr_head_ci: "passed: run 35691505073"
+  post_merge_ci: "passed: run 35691653263"
+archive:
+  status: EFFECTIVE
+  effective_commit: 49598b6c1962c528d32a63829e82ea6832f1c623
+  task_card: docs/archive/task-cards/F-010-playable-town.md
+  implementation_plan: docs/archive/task-cards/F-010-implementation-plan.md
+pr:
+  number: 14
+  url: https://github.com/Muggle8888/15-cyber-town/pull/14
+  state: MERGED
+  base: main
+  head: feat/playable-town
+  final_head_sha: 3399726e03369d0b4a693d529fdcf56804f7b81e
+  final_head_ci_run_id: 35691505073
+  merge_commit_sha: 49598b6c1962c528d32a63829e82ea6832f1c623
+  post_merge_ci_run_id: 35691653263
+local:
+  origin: https://github.com/Muggle8888/15-cyber-town.git
+  main_sha: 49598b6c1962c528d32a63829e82ea6832f1c623
+  closeout_branch: docs/f-010-post-merge-closeout
+  ports_8000_18010: no_listener_at_closeout
+resource_disposition:
+  status: RETAINED
+  keep:
+    - E:/Agent/comprehensive-cases/15-cyber-town
+    - E:/Agent/comprehensive-cases/15-cyber-town/data/uat/f-010
+    - E:/Agent/comprehensive-cases/15-cyber-town/data/acceptance-ledgers/f-010.sqlite3
+    - feat/playable-town
+  manual_delete_candidate:
+    - E:/Agent/.codex-temp/cyber-town-f010-pr.md
+  deleted_by_codex: []
+decision_needed: null
+proposed_next_scope_authorized: false
+updated_at: 2026-09-22 +08:00
 ```
 
-## 用户目标与业务价值
+## 归档说明
 
-玩家进入一处统一画面的 2D 小街区，控制角色移动，接近 Nia、Ivo、Rhea，与其对话并感知记忆和关系变化，然后继续探索。完成后项目首次具备玩家可观察的游戏闭环，而不再只是连接页和独立表单。
+F-010 的活动任务卡与实施计划已复制到 `docs/archive/task-cards/`。Fake 功能验证、用户实际试玩、真实模型 UAT、本地统一质量、PR HEAD CI、合并和合并后 `main` CI 均已完成。候选“NPC 回访体验强化”没有任务编号，也没有获得开发授权。
 
-## 非目标
-
-- 不做室内、多地图、任务、物品、战斗、昼夜、天气或开放世界。
-- 不做 NPC 自主移动、多 Agent 协作、复杂寻路或世界状态写入。
-- 不做移动端、手柄、语音、角色自定义或跨重启聊天记录。
-- 不修改公开 Dialogue v1 与 relationship API Schema。
-
-## UI 与视觉验收合同
-
-- 设计产物：`docs/design/playable-town/visual-baseline.md` 与 `concept-v1.png`。
-- 用户设计确认状态：`approved`（2026-09-21）。
-- 首个实机验收视口：Godot `640 × 360`，暖色傍晚正常状态，Nia 对话面板打开。
-- 必须一致：一街一广场、三名 NPC 空间分布、暖色窗灯/蓝紫阴影、低密度轻科幻装饰、底部面板比例、中文可读性。
-- 允许差异：角色和建筑细节服从最终获批的 16×16 素材；概念图远景、河流和心形图标不进入实机。
-- 禁止出现：风格混杂、生成图直接切片、战斗元素、过量霓虹、调试字段占据玩家 UI。
-- 核心页面状态：正常、加载、成功、降级、超时、不可用、非法输入和手动重试均已实现；用户已确认除 Fake 固定回复外，功能、视觉与手感试玩通过。
-
-## 验收标准摘要
-
-1. 玩家可在城镇移动、碰撞并被摄像机稳定跟随。
-2. 只有接近的最近 NPC 显示互动提示，未知 NPC 标识无法发起请求。
-3. 三名 NPC 的会话、聊天记录、关系和请求状态严格隔离。
-4. 对话、重试、降级、超时和后端不可用均有明确中文反馈。
-5. fake 功能验收、用户视觉/手感验收和另行授权的真实模型 UAT 分别通过后，任务才可完成。
-
-## 文件与安全边界
-
-视觉批准后允许修改 `game/`、相关 Godot 测试、统一质量入口的必要契约及对应权威文档。未经独立授权不得读取 `.env`、调用真实模型、提交、推送、创建 PR、合并、部署或删除资源。
-
-## 视觉门禁
-
-[项目规则](../../AGENTS.md)要求的设计批准、首个实机视口和用户 Fake 模式手感验收均已完成：用户先批准概念基线与 F-010，再于 2026-09-22 通过 `godot-normal-v2.png`，并确认除 Fake 固定回复外功能与手感试玩通过。这不等于真实模型 UAT 或 Git 交付获批。
+隔离 UAT 目录和验收账本可能包含验收状态数据，当前按审计证据保留且受 `.gitignore` 保护；Codex 未删除任何资源。PR 正文临时文件仅含已公开的 PR 描述，可由用户手动删除，预计释放 2,038 bytes。

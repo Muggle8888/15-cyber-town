@@ -6,7 +6,7 @@
 
 B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7最终PR HEAD CI、PR #13合并及合并后`main` CI均已通过，任务卡与实施计划归档已经生效，F-009 授权已消费完毕。
 
-用户已批准 `F-010 Cyber Town 基础可玩版本` 的视觉基线、本地实现和首个 Godot 实机视觉门禁。城镇闭环、按 NPC 会话/历史、关系反馈、失败与重试、基础声音和中文字体已实现，并通过本地 Godot、fake HTTP、用户功能/手感试玩和修复后的统一全量质量。真实模型 UAT 和 Git 交付尚未完成，因此 F-010 仍为进行中。
+F-010 的城镇闭环、按 NPC 会话/历史、关系反馈、失败与重试、基础声音和中文字体已实现；本地统一质量、Fake Provider 验证、用户功能/手感试玩和真实模型 UAT 均已通过。PR #14、PR HEAD CI、合并与合并后 `main` CI 已完成，F-010 归档生效，当前没有活动任务。
 
 ## 2026-09-21 基础可玩版本视觉预制作
 
@@ -1373,4 +1373,15 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 追加式结算与恢复流程专项验证为 59 passed；随后统一质量再次完整通过，pytest 为 2115 passed、969 个既有条件 skip、0 failed，Ruff、strict mypy（134 个源码文件）、Schema、Godot import/unit、连接场景、Fake 对话/三 NPC/城镇回环和前后敏感信息门禁全部通过。
 - 真实账本解决结果：3 次既有调用、0 未决、保守费用 10,388 微美元。最终恢复命令只在子进程移除 `ALL_PROXY`，使用 `deepseek-flash`、零 SDK 自动重试和原隔离数据库；新增 6 次后输出 `F010_REAL_UAT=PASS`。
 - 最终真实 UAT 汇总：9 次总调用，9 项恢复检查；8 次取得官方 usage，累计 2,065 输入 token、307 输出 token；1 次未知结果按最大预留计费；保守总费用 11,130 微美元（USD 0.011130），低于 USD 0.05 硬上限，未决 0。
+
+## 2026-09-22 F-010 Git 交付与合并后收口
+
+- 最终暂存范围为 691 个文件、3762 行新增、263 行删除；无未暂存修改、无未跟踪文件，`git diff --cached --check` 通过。仓库忽略规则和敏感信息专项测试为 2 passed，`data/` 下的真实 UAT 隔离数据未进入提交。
+- 功能提交 `3399726e03369d0b4a693d529fdcf56804f7b81e` 已推送到 `origin/feat/playable-town`。PR [#14](https://github.com/Muggle8888/15-cyber-town/pull/14) 的最终 HEAD 与该提交一致，Quality run [`35691505073`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35691505073) 在 1 分 45 秒内完成并通过。
+- PR #14 于 `2026-09-22T05:40:47Z` 合并，合并提交为 `49598b6c1962c528d32a63829e82ea6832f1c623`。合并后 `main` Quality run [`35691653263`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35691653263) 在 1 分 44 秒内完成并通过。
+- 本地正式目录在确认工作区干净、fetch 最新远端且旧 `main` 是 `origin/main` 祖先后，执行 `git switch main` 与 `git merge --ff-only origin/main`；本地 `main` 已同步到 `49598b6c1962c528d32a63829e82ea6832f1c623`。
+- 收口时 `127.0.0.1:8000` 与 `127.0.0.1:18010` 均无监听。未根据历史 PID 终止任何进程，未删除资源或分支。
+- 保留的忽略资源：`E:/Agent/comprehensive-cases/15-cyber-town/data/uat/f-010`，2 个文件、241,664 bytes；`E:/Agent/comprehensive-cases/15-cyber-town/data/acceptance-ledgers/f-010.sqlite3`，24,576 bytes。两者可能包含验收状态数据，继续用于审计，不读取或提交内容。
+- 保留的仓库外临时文件：`E:/Agent/.codex-temp/cyber-town-f010-pr.md`，2,038 bytes，仅含已公开 PR 描述；可由用户手动删除。Codex 未执行删除，当前磁盘回收量为 0 bytes。
+- `feat/playable-town` 历史任务分支按项目规则保留。候选 `NPC-RETURN-VISIT` 未建立任务卡、未分配正式编号、未进入开发。
 - 通过项：Nia 身份与同会话多轮名字召回；确定性本地长期事实写入零 Provider 调用；服务重建后 Nia 召回 `霓虹夜市`；Ivo 身份与 Provider 边界无 Nia 长期事实；Rhea 身份与关系事件；关系事件未跨 NPC 泄漏。原始玩家文本、完整模型回复、密钥、Provider body 和 reasoning 均未写入日志或文档。
