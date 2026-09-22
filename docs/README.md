@@ -15,6 +15,7 @@
 - 当前任务：[`project-management/current-task.md`](project-management/current-task.md)
 - 当前计划：[`project-management/implementation-plan.md`](project-management/implementation-plan.md)
 - F-010 获批视觉基线：[`design/playable-town/visual-baseline.md`](design/playable-town/visual-baseline.md)
+- F-014 当前视觉规格：[`design/twilight-signal-aftermath/design-spec.md`](design/twilight-signal-aftermath/design-spec.md)
 - F-010 归档任务卡：[`archive/task-cards/F-010-playable-town.md`](archive/task-cards/F-010-playable-town.md)
 - F-010 归档实施计划：[`archive/task-cards/F-010-implementation-plan.md`](archive/task-cards/F-010-implementation-plan.md)
 - F-009 历史验收契约：[`project-management/F-009-验收契约.md`](project-management/F-009-验收契约.md)

@@ -12,6 +12,8 @@ const HEALTH_CLIENT_SCRIPT := preload("res://scripts/backend_health_client.gd")
 const DIALOGUE_CLIENT_SCRIPT := preload("res://scripts/dialogue/dialogue_client.gd")
 const RELATIONSHIP_CLIENT_SCRIPT := preload("res://scripts/dialogue/relationship_client.gd")
 const EVENT_STATE_SCRIPT := preload("res://scripts/town/twilight_signal_event_state.gd")
+const AFTERMATH_STATE_SCRIPT := preload("res://scripts/town/twilight_signal_aftermath_state.gd")
+const EVENT_COORDINATOR_SCRIPT := preload("res://scripts/town/town_event_coordinator.gd")
 const UI_FONT := preload("res://assets/third_party/noto_sans_cjk_sc_complete/NotoSansCJKsc-Regular.otf")
 const INTERACTION_SOUND := preload("res://assets/third_party/kenney_rpg_audio/Audio/bookOpen.ogg")
 const BUTTON_SOUND := preload("res://assets/third_party/kenney_rpg_audio/Audio/metalClick.ogg")
@@ -94,8 +96,21 @@ var _event_progress_label: Label
 var _event_title_label: Label
 var _event_objective_label: Label
 var _event_reset_confirmation: Panel
+var _event_reset_confirmation_text: Label
+var _event_reset_cancel_button: Button
+var _event_reset_confirm_button: Button
+var _event_replay_prelude_button: Button
+var _aftermath_choice_panel: Panel
+var _aftermath_choice_buttons: Array[Button] = []
+var _aftermath_choice_confirmation: Panel
+var _aftermath_choice_confirmation_text: Label
+var _aftermath_choice_open := false
+var _pending_aftermath_outcome: StringName = &""
 var _event_state: TwilightSignalEventState
+var _aftermath_state: TwilightSignalAftermathState
+var _event_coordinator: TownEventCoordinator
 var _event_warning_text := ""
+var _aftermath_warning_text := ""
 var _pending_event_draft: Dictionary = {}
 var _event_request_snapshots: Dictionary = {}
 var _topic_memory_button: Button
@@ -116,6 +131,7 @@ var _observation_remember_button: Button
 var _pending_guided_action: Dictionary = {}
 var _discovered_landmarks: Dictionary = {}
 var _active_landmark_id: StringName = &""
+var _landmark_nodes: Dictionary = {}
 var _observation_open := false
 var _health_client: Node
 var _dialogue_client: Node
@@ -138,8 +154,11 @@ func _ready() -> void:
 	_capture_path = _capture_argument()
 	_ui_font = UI_FONT
 	_build_event_state()
+	if _has_user_argument("--prepare-aftermath-demo"):
+		_prepare_aftermath_demo_state()
 	_build_ground()
 	_build_landmarks()
+	_apply_aftermath_visuals()
 	_build_boundaries()
 	_spawn_npcs()
 	_spawn_player()
@@ -148,7 +167,11 @@ func _ready() -> void:
 	_build_audio()
 	if not _capture_path.is_empty():
 		_set_health_state(&"connected")
-		if _has_user_argument("--capture-event-dialogue"):
+		if _has_user_argument("--capture-aftermath-outcome"):
+			_show_aftermath_outcome_capture_state()
+		elif _has_user_argument("--capture-aftermath-choice"):
+			_show_aftermath_choice_capture_state()
+		elif _has_user_argument("--capture-event-dialogue"):
 			_show_event_dialogue_capture_state()
 		elif _has_user_argument("--capture-event-complete"):
 			_show_event_complete_capture_state()
@@ -184,7 +207,7 @@ func _exit_tree() -> void:
 
 func _process(_delta: float) -> void:
 	_fill_ambient()
-	if _observation_open:
+	if _observation_open or _aftermath_choice_open:
 		return
 	if not is_instance_valid(_player) or _dialogue_open:
 		return
@@ -197,7 +220,10 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("close_dialogue") and _observation_open:
+	if event.is_action_pressed("close_dialogue") and _aftermath_choice_open:
+		_close_aftermath_choice()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("close_dialogue") and _observation_open:
 		_close_observation()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("close_dialogue") and _dialogue_open:
@@ -208,6 +234,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not closest.is_empty():
 			if StringName(closest["kind"]) == &"npc":
 				_open_dialogue(StringName(closest["id"]))
+			elif _can_open_aftermath_choice(StringName(closest["id"])):
+				_open_aftermath_choice()
 			else:
 				_open_observation(StringName(closest["id"]))
 			get_viewport().set_input_as_handled()
@@ -254,6 +282,8 @@ func nearest_interaction_target(origin: Vector2, maximum_distance: float) -> Dic
 func _prompt_for_target(target: Dictionary) -> String:
 	if StringName(target.get("kind", &"")) == &"npc":
 		return "E  与 %s 交谈" % String(target.get("display_name", ""))
+	if _can_open_aftermath_choice(StringName(target.get("id", &""))):
+		return "E  决定暮光信号用途"
 	return "E  查看%s" % String(target.get("display_name", ""))
 
 
@@ -315,6 +345,22 @@ func landmark_profile_for_testing(landmark_id: StringName) -> Dictionary:
 	return (LANDMARK_PROFILES.get(landmark_id, {}) as Dictionary).duplicate(true)
 
 
+func aftermath_visual_for_testing() -> Dictionary:
+	var root := _landmark_nodes.get(&"signal_calibration_station") as Node2D
+	if root == null:
+		return {}
+	var panel := root.get_node("Panel") as ColorRect
+	var accent := root.get_node("Panel/Accent") as ColorRect
+	var mark := root.get_node("Panel/Mark") as Label
+	var label := root.get_node("Label") as Label
+	return {
+		"panel": panel.color.to_html(),
+		"accent": accent.color.to_html(),
+		"mark": mark.get_theme_color("font_color").to_html(),
+		"label": label.text,
+	}
+
+
 func dialogue_client_for_testing() -> Node:
 	return _dialogue_client
 
@@ -331,6 +377,22 @@ func event_stage_for_testing() -> StringName:
 	return _event_state.stage
 
 
+func aftermath_stage_for_testing() -> StringName:
+	return _aftermath_state.stage
+
+
+func aftermath_outcome_for_testing() -> StringName:
+	return _aftermath_state.selected_outcome
+
+
+func aftermath_profile_for_testing() -> Dictionary:
+	return _aftermath_state.current_profile()
+
+
+func aftermath_save_path_for_testing() -> String:
+	return _aftermath_state.save_path_for_testing()
+
+
 func event_profile_for_testing() -> Dictionary:
 	return _event_state.current_profile()
 
@@ -342,9 +404,40 @@ func event_save_path_for_testing() -> String:
 func reset_event_for_testing() -> void:
 	_event_state.reset_event()
 	_event_warning_text = _event_state.last_warning
+	_event_coordinator.synchronize()
 	_event_request_snapshots.clear()
 	_pending_event_draft = {}
 	_render_event_tracker()
+
+
+func _prepare_aftermath_demo_state() -> void:
+	if _event_state.stage != &"nia_intro":
+		return
+	_event_state.advance_dialogue(&"neon_guide", "completed")
+	_event_state.record_landmark(&"twilight_guide_board")
+	_event_state.advance_dialogue(&"signal_archivist", "completed")
+	_event_state.record_landmark(&"signal_calibration_station")
+	_event_state.advance_dialogue(&"night_courier", "completed")
+	_event_state.record_landmark(&"rain_delivery_board")
+	_event_state.advance_dialogue(&"neon_guide", "completed")
+	_event_coordinator.synchronize()
+
+
+func reset_aftermath_for_testing() -> void:
+	_aftermath_state.reset_event(_event_state.is_completed())
+	_aftermath_warning_text = _aftermath_state.last_warning
+	_event_request_snapshots.clear()
+	_pending_event_draft = {}
+	_apply_aftermath_visuals()
+	_render_event_tracker()
+
+
+func choose_aftermath_for_testing(outcome_id: StringName) -> bool:
+	var chosen := _aftermath_state.choose_outcome(outcome_id)
+	if chosen:
+		_apply_aftermath_visuals()
+		_render_event_tracker()
+	return chosen
 
 
 func set_backend_available_for_testing(value: bool) -> void:
@@ -419,20 +512,24 @@ func _add_exploration_landmark(landmark_id: StringName, profile: Dictionary) -> 
 	root.position = profile["position"]
 	root.z_index = 1
 	_world.add_child(root)
+	_landmark_nodes[landmark_id] = root
 
 	var panel := ColorRect.new()
+	panel.name = "Panel"
 	panel.position = Vector2(-21, -27)
 	panel.size = Vector2(42, 23)
 	panel.color = Color("#2d263d")
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 	var accent := ColorRect.new()
+	accent.name = "Accent"
 	accent.position = Vector2(3, 3)
 	accent.size = Vector2(36, 3)
 	accent.color = Color(String(profile["accent"]))
 	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(accent)
 	var mark := Label.new()
+	mark.name = "Mark"
 	mark.position = Vector2(0, 6)
 	mark.size = Vector2(42, 15)
 	mark.text = "◆"
@@ -450,6 +547,7 @@ func _add_exploration_landmark(landmark_id: StringName, profile: Dictionary) -> 
 		leg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(leg)
 	var label := Label.new()
+	label.name = "Label"
 	label.position = Vector2(-42, 7)
 	label.size = Vector2(84, 16)
 	label.text = String(profile["short_label"])
@@ -466,6 +564,32 @@ func _add_exploration_landmark(landmark_id: StringName, profile: Dictionary) -> 
 		Rect2(Vector2(profile["position"]) + Vector2(-21, -27), Vector2(42, 23)),
 		"%sCollision" % root.name,
 	)
+
+
+func _apply_aftermath_visuals() -> void:
+	var root := _landmark_nodes.get(&"signal_calibration_station") as Node2D
+	if root == null:
+		return
+	var panel := root.get_node("Panel") as ColorRect
+	var accent := root.get_node("Panel/Accent") as ColorRect
+	var mark := root.get_node("Panel/Mark") as Label
+	var label := root.get_node("Label") as Label
+	var base_profile: Dictionary = LANDMARK_PROFILES[&"signal_calibration_station"]
+	var outcome := _aftermath_state.outcome_profile()
+	if outcome.is_empty():
+		panel.color = Color("#2d263d")
+		accent.color = Color(String(base_profile["accent"]))
+		mark.add_theme_color_override("font_color", Color(String(base_profile["accent"])))
+		label.text = String(base_profile["short_label"])
+		label.add_theme_color_override("font_color", Color("#f3dbc1"))
+		return
+	var primary := Color(String(outcome["accent"]))
+	var secondary := Color(String(outcome["secondary"]))
+	panel.color = Color("#2d263d").lerp(secondary, 0.28)
+	accent.color = primary
+	mark.add_theme_color_override("font_color", secondary)
+	label.text = String(outcome["sign"])
+	label.add_theme_color_override("font_color", primary)
 
 
 func _add_building(node_name: String, position: Vector2, region: Rect2, scale_value: float) -> void:
@@ -591,6 +715,17 @@ func _build_event_state() -> void:
 	var save_path := "" if not _capture_path.is_empty() else _event_save_path_argument()
 	_event_state = EVENT_STATE_SCRIPT.new(save_path) as TwilightSignalEventState
 	_event_warning_text = _event_state.load_or_start()
+	var aftermath_save_path := (
+		"" if not _capture_path.is_empty() else _aftermath_save_path_argument()
+	)
+	_aftermath_state = (
+		AFTERMATH_STATE_SCRIPT.new(aftermath_save_path) as TwilightSignalAftermathState
+	)
+	_aftermath_warning_text = _aftermath_state.load_or_initialize(_event_state.is_completed())
+	_event_coordinator = (
+		EVENT_COORDINATOR_SCRIPT.new(_event_state, _aftermath_state) as TownEventCoordinator
+	)
+	_event_coordinator.synchronize()
 
 
 func _build_ui() -> void:
@@ -756,6 +891,7 @@ func _build_ui() -> void:
 
 	_build_topic_memory_popup(root)
 	_build_observation_card(root)
+	_build_aftermath_choice_panel(root)
 
 
 func _build_event_tracker(root: Control) -> void:
@@ -826,34 +962,176 @@ func _build_event_reset_confirmation(root: Control) -> void:
 	)
 	_event_reset_confirmation.visible = false
 	root.add_child(_event_reset_confirmation)
-	var message := Label.new()
-	message.name = "EventResetConfirmationText"
-	message.position = Vector2(9, 7)
-	message.size = Vector2(212, 32)
-	message.text = "重新调查暮光信号？\n只会重置本事件进度。"
-	message.add_theme_font_size_override("font_size", 9)
-	message.add_theme_color_override("font_color", Color("#eee6dc"))
-	_event_reset_confirmation.add_child(message)
-	var cancel := Button.new()
-	cancel.name = "EventResetCancelButton"
-	cancel.position = Vector2(104, 43)
-	cancel.size = Vector2(52, 22)
-	cancel.text = "取消"
-	cancel.add_theme_font_size_override("font_size", 9)
-	cancel.pressed.connect(_cancel_event_reset)
-	_event_reset_confirmation.add_child(cancel)
-	var confirm := Button.new()
-	confirm.name = "EventResetConfirmButton"
-	confirm.position = Vector2(162, 43)
-	confirm.size = Vector2(60, 22)
-	confirm.text = "确认重温"
-	confirm.add_theme_font_size_override("font_size", 9)
-	confirm.pressed.connect(_confirm_event_reset)
-	_event_reset_confirmation.add_child(confirm)
+	_event_reset_confirmation_text = Label.new()
+	_event_reset_confirmation_text.name = "EventResetConfirmationText"
+	_event_reset_confirmation_text.position = Vector2(9, 7)
+	_event_reset_confirmation_text.size = Vector2(212, 32)
+	_event_reset_confirmation_text.text = "重新调查暮光信号？\n只会重置本事件进度。"
+	_event_reset_confirmation_text.add_theme_font_size_override("font_size", 9)
+	_event_reset_confirmation_text.add_theme_color_override("font_color", Color("#eee6dc"))
+	_event_reset_confirmation.add_child(_event_reset_confirmation_text)
+	_event_reset_cancel_button = Button.new()
+	_event_reset_cancel_button.name = "EventResetCancelButton"
+	_event_reset_cancel_button.position = Vector2(104, 43)
+	_event_reset_cancel_button.size = Vector2(52, 22)
+	_event_reset_cancel_button.text = "取消"
+	_event_reset_cancel_button.add_theme_font_size_override("font_size", 9)
+	_event_reset_cancel_button.pressed.connect(_cancel_event_reset)
+	_event_reset_confirmation.add_child(_event_reset_cancel_button)
+	_event_replay_prelude_button = Button.new()
+	_event_replay_prelude_button.name = "EventReplayPreludeButton"
+	_event_replay_prelude_button.position = Vector2(104, 43)
+	_event_replay_prelude_button.size = Vector2(52, 22)
+	_event_replay_prelude_button.text = "前篇"
+	_event_replay_prelude_button.add_theme_font_size_override("font_size", 9)
+	_event_replay_prelude_button.pressed.connect(_confirm_prelude_replay)
+	_event_replay_prelude_button.visible = false
+	_event_reset_confirmation.add_child(_event_replay_prelude_button)
+	_event_reset_confirm_button = Button.new()
+	_event_reset_confirm_button.name = "EventResetConfirmButton"
+	_event_reset_confirm_button.position = Vector2(162, 43)
+	_event_reset_confirm_button.size = Vector2(60, 22)
+	_event_reset_confirm_button.text = "确认重温"
+	_event_reset_confirm_button.add_theme_font_size_override("font_size", 9)
+	_event_reset_confirm_button.pressed.connect(_confirm_event_reset)
+	_event_reset_confirmation.add_child(_event_reset_confirm_button)
+
+
+func _build_aftermath_choice_panel(root: Control) -> void:
+	_aftermath_choice_panel = Panel.new()
+	_aftermath_choice_panel.name = "AftermathChoicePanel"
+	_aftermath_choice_panel.position = Vector2(14, 68)
+	_aftermath_choice_panel.size = Vector2(356, 220)
+	_aftermath_choice_panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("#171326f7"), Color("#e6b96a"), 2),
+	)
+	_aftermath_choice_panel.visible = false
+	root.add_child(_aftermath_choice_panel)
+
+	var title := Label.new()
+	title.name = "AftermathChoiceTitle"
+	title.position = Vector2(14, 8)
+	title.size = Vector2(272, 24)
+	title.text = "决定暮光信号的新用途"
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color("#ffca7a"))
+	_aftermath_choice_panel.add_child(title)
+
+	var close := Button.new()
+	close.name = "AftermathChoiceClose"
+	close.position = Vector2(288, 8)
+	close.size = Vector2(54, 22)
+	close.text = "关闭 Esc"
+	close.add_theme_font_size_override("font_size", 8)
+	close.focus_mode = Control.FOCUS_NONE
+	close.pressed.connect(_close_aftermath_choice)
+	_aftermath_choice_panel.add_child(close)
+
+	var hint := Label.new()
+	hint.name = "AftermathChoiceHint"
+	hint.position = Vector2(14, 34)
+	hint.size = Vector2(328, 20)
+	hint.text = "三种方案都能完成事件，没有隐藏的最佳答案。"
+	hint.add_theme_font_size_override("font_size", 9)
+	hint.add_theme_color_override("font_color", Color("#d9d2c8"))
+	_aftermath_choice_panel.add_child(hint)
+
+	var choices := [
+		{
+			"id": &"night_market_guide",
+			"name": "Nia · 夜市导引",
+			"description": "暖色灯光引导居民前往夜市",
+			"color": Color("#f4a261"),
+		},
+		{
+			"id": &"archive_monitor",
+			"name": "Ivo · 档案监听",
+			"description": "保留旧广播并持续记录小镇历史",
+			"color": Color("#9a8cff"),
+		},
+		{
+			"id": &"rain_route_beacon",
+			"name": "Rhea · 雨夜信标",
+			"description": "为雨夜街道与投递路线提供指引",
+			"color": Color("#70d6c8"),
+		},
+	]
+	for index: int in range(choices.size()):
+		var choice: Dictionary = choices[index]
+		var button := Button.new()
+		button.name = "AftermathChoice%d" % index
+		button.position = Vector2(14, 58 + index * 44)
+		button.size = Vector2(328, 40)
+		button.text = "%s\n%s" % [choice["name"], choice["description"]]
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_font_size_override("font_size", 9)
+		button.add_theme_color_override("font_color", choice["color"])
+		button.focus_mode = Control.FOCUS_NONE
+		button.pressed.connect(_select_aftermath_outcome.bind(StringName(choice["id"])))
+		_aftermath_choice_panel.add_child(button)
+		_aftermath_choice_buttons.append(button)
+
+	var footer := Label.new()
+	footer.name = "AftermathChoiceFooter"
+	footer.position = Vector2(14, 194)
+	footer.size = Vector2(328, 18)
+	footer.text = "选择后会保存，可通过“重温余波”重新选择。"
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_size_override("font_size", 9)
+	footer.add_theme_color_override("font_color", Color("#aeb8c9"))
+	_aftermath_choice_panel.add_child(footer)
+
+	_aftermath_choice_confirmation = Panel.new()
+	_aftermath_choice_confirmation.name = "AftermathChoiceConfirmation"
+	_aftermath_choice_confirmation.position = Vector2(24, 62)
+	_aftermath_choice_confirmation.size = Vector2(308, 108)
+	_aftermath_choice_confirmation.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("#211b35fc"), Color("#e6b96a"), 1),
+	)
+	_aftermath_choice_confirmation.visible = false
+	_aftermath_choice_panel.add_child(_aftermath_choice_confirmation)
+	_aftermath_choice_confirmation_text = Label.new()
+	_aftermath_choice_confirmation_text.name = "AftermathChoiceConfirmationText"
+	_aftermath_choice_confirmation_text.position = Vector2(10, 9)
+	_aftermath_choice_confirmation_text.size = Vector2(288, 54)
+	_aftermath_choice_confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_aftermath_choice_confirmation_text.add_theme_font_size_override("font_size", 10)
+	_aftermath_choice_confirmation_text.add_theme_color_override(
+		"font_color",
+		Color("#eee6dc"),
+	)
+	_aftermath_choice_confirmation.add_child(_aftermath_choice_confirmation_text)
+	var choice_cancel := Button.new()
+	choice_cancel.name = "AftermathChoiceCancel"
+	choice_cancel.position = Vector2(172, 72)
+	choice_cancel.size = Vector2(54, 24)
+	choice_cancel.text = "取消"
+	choice_cancel.pressed.connect(_cancel_aftermath_selection)
+	_aftermath_choice_confirmation.add_child(choice_cancel)
+	var choice_confirm := Button.new()
+	choice_confirm.name = "AftermathChoiceConfirm"
+	choice_confirm.position = Vector2(232, 72)
+	choice_confirm.size = Vector2(66, 24)
+	choice_confirm.text = "确认选择"
+	choice_confirm.pressed.connect(_confirm_aftermath_selection)
+	_aftermath_choice_confirmation.add_child(choice_confirm)
 
 
 func _toggle_event_tracker_preview() -> void:
-	if _event_state.is_completed():
+	if _event_coordinator.active_is_completed():
+		var is_aftermath := (
+			_event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID
+		)
+		_event_reset_confirmation_text.text = (
+			"重温余波或前篇？\n两段进度会分别独立重置。"
+			if is_aftermath
+			else "重新调查暮光信号？\n只会重置本事件进度。"
+		)
+		_event_replay_prelude_button.visible = is_aftermath
+		_event_reset_cancel_button.position.x = 46 if is_aftermath else 104
+		_event_reset_confirm_button.text = "重温余波" if is_aftermath else "确认重温"
 		_event_reset_confirmation.visible = true
 		return
 	_set_event_tracker_collapsed(not _event_tracker_collapsed)
@@ -862,9 +1140,13 @@ func _toggle_event_tracker_preview() -> void:
 func _set_event_tracker_collapsed(value: bool) -> void:
 	_event_tracker_collapsed = value
 	_event_tracker_body.visible = not value
-	if _event_state.is_completed():
+	if _event_coordinator.active_is_completed():
 		_event_tracker_toggle.text = "重温"
-		_event_tracker_toggle.tooltip_text = "重新调查暮光失联信号"
+		_event_tracker_toggle.tooltip_text = (
+			"重温暮光信号余波"
+			if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID
+			else "重新调查暮光失联信号"
+		)
 	else:
 		_event_tracker_toggle.text = "展开" if value else "收起"
 		_event_tracker_toggle.tooltip_text = "展开事件目标" if value else "折叠事件目标"
@@ -874,23 +1156,40 @@ func _set_event_tracker_collapsed(value: bool) -> void:
 func _render_event_tracker() -> void:
 	if not is_instance_valid(_event_progress_label):
 		return
-	var profile := _event_state.current_profile()
+	_event_coordinator.synchronize()
+	var active_event_id := _event_coordinator.active_event_id()
+	var profile := _event_coordinator.current_profile()
 	var progress := int(profile.get("progress", 1))
 	_event_progress_label.text = "街区事件 · %d/7" % progress
-	_event_title_label.text = "暮光失联信号"
-	if _event_state.is_completed():
+	_event_title_label.text = (
+		"暮光信号余波"
+		if active_event_id == TownEventCoordinator.AFTERMATH_ID
+		else "暮光失联信号"
+	)
+	if _event_coordinator.active_is_completed():
 		_event_objective_label.text = _event_completion_line()
 		_event_tracker_toggle.text = "重温"
-		_event_tracker_toggle.tooltip_text = "重新调查暮光失联信号"
+		_event_tracker_toggle.tooltip_text = (
+			"重温暮光信号余波"
+			if active_event_id == TownEventCoordinator.AFTERMATH_ID
+			else "重新调查暮光失联信号"
+		)
 		return
 	var objective := String(profile.get("objective", "和 Nia 聊聊今晚异常的灯光"))
-	if not _event_warning_text.is_empty():
+	var warning := (
+		_aftermath_warning_text
+		if active_event_id == TownEventCoordinator.AFTERMATH_ID
+		else _event_warning_text
+	)
+	if not warning.is_empty():
 		objective = "进度已重置 · %s" % objective
 	_event_objective_label.text = objective
 	_event_tracker_toggle.text = "展开" if _event_tracker_collapsed else "收起"
 
 
 func _event_completion_line() -> String:
+	if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID:
+		return "%s · 三位居民都已回应" % _aftermath_state.outcome_display_name()
 	return _event_completion_line_for_stage(_verified_relationship_stage())
 
 
@@ -915,6 +1214,22 @@ func _cancel_event_reset() -> void:
 
 func _confirm_event_reset() -> void:
 	_event_reset_confirmation.visible = false
+	if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID:
+		_aftermath_state.reset_event(_event_state.is_completed())
+		_aftermath_warning_text = _aftermath_state.last_warning
+	else:
+		_event_state.reset_event()
+		_event_warning_text = _event_state.last_warning
+	_event_request_snapshots.clear()
+	_pending_event_draft = {}
+	_apply_aftermath_visuals()
+	_set_event_tracker_collapsed(false)
+	_render_event_tracker()
+	_play_ui_sound()
+
+
+func _confirm_prelude_replay() -> void:
+	_event_reset_confirmation.visible = false
 	_event_state.reset_event()
 	_event_warning_text = _event_state.last_warning
 	_event_request_snapshots.clear()
@@ -924,12 +1239,119 @@ func _confirm_event_reset() -> void:
 	_play_ui_sound()
 
 
+func _can_open_aftermath_choice(landmark_id: StringName) -> bool:
+	return (
+		landmark_id == &"signal_calibration_station"
+		and _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID
+		and _aftermath_state.stage == &"decision_ready"
+	)
+
+
+func _open_aftermath_choice() -> bool:
+	if (
+		not _can_open_aftermath_choice(&"signal_calibration_station")
+		or _dialogue_open
+		or _observation_open
+		or _dialogue_client.is_request_in_flight()
+	):
+		return false
+	_aftermath_choice_open = true
+	_pending_aftermath_outcome = &""
+	_aftermath_choice_confirmation.visible = false
+	for button: Button in _aftermath_choice_buttons:
+		button.disabled = false
+	_aftermath_choice_panel.visible = true
+	_prompt_label.visible = false
+	_player.set_movement_locked(true)
+	_play_interaction_sound()
+	return true
+
+
+func _close_aftermath_choice() -> void:
+	if not _aftermath_choice_open:
+		return
+	_aftermath_choice_open = false
+	_pending_aftermath_outcome = &""
+	_aftermath_choice_confirmation.visible = false
+	_aftermath_choice_panel.visible = false
+	if is_instance_valid(_player):
+		_player.set_movement_locked(false)
+	_play_ui_sound()
+
+
+func _select_aftermath_outcome(outcome_id: StringName) -> void:
+	if not _aftermath_choice_open or outcome_id not in TwilightSignalAftermathState.OUTCOME_IDS:
+		return
+	_pending_aftermath_outcome = outcome_id
+	var profile: Dictionary = TwilightSignalAftermathState.OUTCOME_PROFILES[outcome_id]
+	_aftermath_choice_confirmation_text.text = (
+		"确定选择“%s”？\n选择会保存，但可以通过“重温余波”重新决定。"
+		% String(profile["display_name"])
+	)
+	_aftermath_choice_confirmation.visible = true
+	for button: Button in _aftermath_choice_buttons:
+		button.disabled = true
+	_play_ui_sound()
+
+
+func _cancel_aftermath_selection() -> void:
+	_pending_aftermath_outcome = &""
+	_aftermath_choice_confirmation.visible = false
+	for button: Button in _aftermath_choice_buttons:
+		button.disabled = false
+	_play_ui_sound()
+
+
+func _confirm_aftermath_selection() -> void:
+	if (
+		_pending_aftermath_outcome.is_empty()
+		or not _aftermath_state.choose_outcome(_pending_aftermath_outcome)
+	):
+		return
+	_aftermath_warning_text = _aftermath_state.last_warning
+	_aftermath_choice_open = false
+	_aftermath_choice_confirmation.visible = false
+	_aftermath_choice_panel.visible = false
+	_pending_aftermath_outcome = &""
+	_apply_aftermath_visuals()
+	_render_event_tracker()
+	_player.set_movement_locked(false)
+	_play_ui_sound()
+
+
 func _show_event_tracker_capture_state() -> void:
 	_player.position = Vector2(174, 270)
 	_prompt_label.text = "E  与 Nia 交谈"
 	_prompt_label.visible = true
 	_set_event_tracker_collapsed(false)
 	_render_event_tracker()
+
+
+func _show_aftermath_choice_capture_state() -> void:
+	_player.position = Vector2(560, 480)
+	_player.set_movement_locked(true)
+	_dialogue_open = true
+	_prompt_label.text = "E  决定暮光信号用途"
+	_prompt_label.visible = true
+	_set_event_tracker_collapsed(false)
+	_event_progress_label.text = "街区事件 · 4/7"
+	_event_title_label.text = "暮光信号余波"
+	_event_objective_label.text = "三方意见齐全 · 在校准台作出选择"
+	_aftermath_choice_panel.visible = true
+
+
+func _show_aftermath_outcome_capture_state() -> void:
+	_show_event_complete_capture_state()
+	_aftermath_state.record_dialogue(&"neon_guide", &"consultation", "completed")
+	_aftermath_state.record_dialogue(&"night_courier", &"consultation", "completed")
+	_aftermath_state.record_dialogue(&"signal_archivist", &"consultation", "completed")
+	_aftermath_state.choose_outcome(&"archive_monitor")
+	_apply_aftermath_visuals()
+	_set_event_tracker_collapsed(false)
+	_render_event_tracker()
+	_player.position = Vector2(520, 300)
+	_prompt_label.text = "结局已保存 · 回访 Ivo、Nia 与 Rhea"
+	_prompt_label.visible = true
 
 
 func _show_event_dialogue_capture_state() -> void:
@@ -1034,6 +1456,7 @@ func _open_observation(landmark_id: StringName) -> bool:
 	if (
 		_dialogue_open
 		or _observation_open
+		or _aftermath_choice_open
 		or not LANDMARK_PROFILES.has(landmark_id)
 		or _dialogue_client.is_request_in_flight()
 	):
@@ -1097,6 +1520,8 @@ func _remember_observation() -> void:
 
 
 func _is_current_event_landmark(landmark_id: StringName) -> bool:
+	if _event_coordinator.active_event_id() != TownEventCoordinator.LOST_SIGNAL_ID:
+		return false
 	var profile := _event_state.current_profile()
 	return (
 		StringName(profile.get("kind", &"")) == &"landmark"
@@ -1235,7 +1660,11 @@ func _render_topic_memory_popup() -> void:
 		"回复自然",
 		"忘记这个主题",
 		"讨论街区发现",
-		"继续 · 暮光失联信号",
+		(
+			"继续 · 暮光信号余波"
+			if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID
+			else "继续 · 暮光失联信号"
+		),
 	]
 	var landmark_profile := _landmark_profile_for_npc(npc_id)
 	var discovery_available := (
@@ -1244,11 +1673,8 @@ func _render_topic_memory_popup() -> void:
 			_discovered_landmarks.get(StringName(landmark_profile["landmark_id"]), false)
 		)
 	)
-	var event_profile := _event_state.current_profile()
-	var event_available := (
-		StringName(event_profile.get("kind", &"")) == &"dialogue"
-		and StringName(event_profile.get("target_id", &"")) == npc_id
-	)
+	var event_action := _active_dialogue_event_action(npc_id)
+	var event_available := not event_action.is_empty()
 	for index: int in range(_topic_memory_buttons.size()):
 		_topic_memory_buttons[index].text = labels[index]
 		_topic_memory_buttons[index].visible = (
@@ -1325,19 +1751,36 @@ func _on_topic_memory_action(index: int) -> void:
 				return
 			_fill_guided_draft(String(landmark_profile["discussion_draft"]))
 		7:
-			var event_profile := _event_state.current_profile()
-			if (
-				StringName(event_profile.get("kind", &"")) != &"dialogue"
-				or StringName(event_profile.get("target_id", &"")) != npc_id
-			):
+			var event_action := _active_dialogue_event_action(npc_id)
+			if event_action.is_empty():
 				return
 			_fill_guided_draft(
-				_event_draft_for_relationship(event_profile),
-				{
-					"stage": String(_event_state.stage),
-					"npc_id": String(npc_id),
-				},
+				_event_draft_for_relationship(event_action),
+				event_action,
 			)
+
+
+func _active_dialogue_event_action(npc_id: StringName) -> Dictionary:
+	if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID:
+		var aftermath_action := _aftermath_state.dialogue_action_for(npc_id)
+		if aftermath_action.is_empty():
+			return {}
+		aftermath_action["event_id"] = String(TownEventCoordinator.AFTERMATH_ID)
+		aftermath_action["stage"] = String(_aftermath_state.stage)
+		aftermath_action["npc_id"] = String(npc_id)
+		return aftermath_action
+	var event_profile := _event_state.current_profile()
+	if (
+		StringName(event_profile.get("kind", &"")) != &"dialogue"
+		or StringName(event_profile.get("target_id", &"")) != npc_id
+	):
+		return {}
+	var action := event_profile.duplicate(true)
+	action["event_id"] = String(TownEventCoordinator.LOST_SIGNAL_ID)
+	action["stage"] = String(_event_state.stage)
+	action["phase"] = "linear"
+	action["npc_id"] = String(npc_id)
+	return action
 
 
 func _fill_guided_draft(draft: String, event_action: Dictionary = {}) -> void:
@@ -1451,7 +1894,7 @@ func _panel_style(background: Color, border: Color, border_width: int) -> StyleB
 func _open_dialogue(npc_id: StringName) -> bool:
 	if npc_id not in APPROVED_NPC_IDS:
 		return false
-	if _observation_open or _dialogue_client.is_request_in_flight():
+	if _observation_open or _aftermath_choice_open or _dialogue_client.is_request_in_flight():
 		return false
 	var target: TownNpcActor = null
 	for npc: TownNpcActor in _npcs:
@@ -1500,7 +1943,7 @@ func _close_dialogue() -> void:
 	_set_topic_memory_popup_visible(false)
 	_pending_event_draft = {}
 	_event_tracker_toggle.disabled = false
-	if not _event_state.is_completed():
+	if not _event_coordinator.active_is_completed():
 		_set_event_tracker_collapsed(_event_tracker_collapsed_before_dialogue)
 	if is_instance_valid(_player):
 		_player.set_movement_locked(false)
@@ -1576,12 +2019,17 @@ func _send_message() -> void:
 	):
 		if (
 			not event_action.is_empty()
-			and String(event_action.get("stage", "")) == String(_event_state.stage)
+			and String(event_action.get("event_id", "")) == String(
+				_event_coordinator.active_event_id()
+			)
+			and String(event_action.get("stage", "")) == _active_event_stage()
 			and String(event_action.get("npc_id", "")) == npc_id
 		):
 			_event_request_snapshots[npc_id] = {
 				"request_id": _dialogue_client.latest_request_id(),
-				"stage": String(_event_state.stage),
+				"event_id": String(event_action["event_id"]),
+				"stage": String(event_action["stage"]),
+				"phase": String(event_action.get("phase", "")),
 			}
 		else:
 			_event_request_snapshots.erase(npc_id)
@@ -1631,7 +2079,7 @@ func _on_dialogue_state_changed(next_state: StringName) -> void:
 			var event_result := _handle_event_dialogue_result()
 			if event_result == &"advanced":
 				_dialogue_status_label.text = "事件已推进 · 下一步：%s" % String(
-					_event_state.current_profile().get("objective", "暮光信号已归档")
+					_event_coordinator.current_profile().get("objective", "事件已归档")
 				)
 			elif event_result == &"degraded":
 				_dialogue_status_label.text = "临时回应，事件尚未推进，可再次询问"
@@ -1668,20 +2116,42 @@ func _handle_event_dialogue_result() -> StringName:
 		return &"none"
 	_event_request_snapshots.erase(npc_id)
 	if (
-		String(snapshot.get("stage", "")) != String(_event_state.stage)
+		String(snapshot.get("event_id", "")) != String(_event_coordinator.active_event_id())
+		or String(snapshot.get("stage", "")) != _active_event_stage()
 		or _dialogue_client.latest_status == "degraded"
 	):
 		return &"degraded" if _dialogue_client.latest_status == "degraded" else &"none"
-	if not _event_state.advance_dialogue(StringName(npc_id), _dialogue_client.latest_status):
+	var advanced := false
+	if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID:
+		advanced = _aftermath_state.record_dialogue(
+			StringName(npc_id),
+			StringName(snapshot.get("phase", "")),
+			_dialogue_client.latest_status,
+		)
+	else:
+		advanced = _event_state.advance_dialogue(
+			StringName(npc_id),
+			_dialogue_client.latest_status,
+		)
+	if not advanced:
 		return &"none"
+	_event_coordinator.synchronize()
 	_event_warning_text = _event_state.last_warning
+	_aftermath_warning_text = _aftermath_state.last_warning
 	_event_request_snapshots.clear()
-	if _event_state.is_completed():
+	_apply_aftermath_visuals()
+	if _event_coordinator.active_is_completed():
 		_set_event_tracker_collapsed(false)
 	_render_event_tracker()
 	if _topic_memory_popup.visible:
 		_render_topic_memory_popup()
 	return &"advanced"
+
+
+func _active_event_stage() -> String:
+	if _event_coordinator.active_event_id() == TownEventCoordinator.AFTERMATH_ID:
+		return String(_aftermath_state.stage)
+	return String(_event_state.stage)
 
 
 func _render_history() -> void:
@@ -1885,6 +2355,18 @@ func _event_save_path_argument() -> String:
 	if not test_path.is_empty():
 		return test_path
 	return "user://twilight_lost_signal_v1.json"
+
+
+func _aftermath_save_path_argument() -> String:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--aftermath-save-path="):
+			return argument.trim_prefix("--aftermath-save-path=")
+	var test_path := String(
+		ProjectSettings.get_setting("cyber_town/testing/aftermath_save_path", "")
+	)
+	if not test_path.is_empty():
+		return test_path
+	return "user://twilight_signal_aftermath_v1.json"
 
 
 func _has_user_argument(expected: String) -> bool:
