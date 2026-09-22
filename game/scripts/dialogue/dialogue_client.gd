@@ -21,6 +21,9 @@ var _active_npc_id := NpcRegistry.DEFAULT_NPC_ID
 var _conversation_id := ""
 var _frozen_payload_json := ""
 var _frozen_message := ""
+var _frozen_display_message := ""
+var _frozen_action_kind := "dialogue"
+var _frozen_success_display := ""
 var _generation := 0
 var _request_in_flight := false
 var _retry_allowed := false
@@ -89,10 +92,18 @@ func switch_npc(npc_id: String) -> bool:
 	return true
 
 
-func begin_send(message: String) -> bool:
+func begin_send(
+	message: String,
+	display_message := "",
+	action_kind := "dialogue",
+	success_display := "",
+) -> bool:
 	if _request_in_flight:
 		return false
 	var normalized := message.strip_edges()
+	var normalized_display := display_message.strip_edges()
+	if normalized_display.is_empty():
+		normalized_display = normalized
 	if normalized.is_empty() or normalized.length() > 1000:
 		_clear_retry_context()
 		_set_state(DialogueState.VALIDATION)
@@ -107,6 +118,9 @@ func begin_send(message: String) -> bool:
 	}
 	_frozen_payload_json = JSON.stringify(payload)
 	_frozen_message = normalized
+	_frozen_display_message = normalized_display
+	_frozen_action_kind = action_kind.strip_edges() if not action_kind.strip_edges().is_empty() else "dialogue"
+	_frozen_success_display = success_display.strip_edges()
 	return _dispatch(false)
 
 
@@ -169,7 +183,17 @@ func handle_response(
 	latest_status = String(outcome["status"])
 	_retry_allowed = bool(outcome["retryable"])
 	if outcome["state"] == DialogueState.SUCCESS:
-		_append_history(_frozen_message, latest_reply, latest_status == "degraded")
+		var visible_reply := (
+			_frozen_success_display
+			if not _frozen_success_display.is_empty() and latest_status != "degraded"
+			else latest_reply
+		)
+		_append_history(
+			_frozen_display_message,
+			visible_reply,
+			latest_status == "degraded",
+			_frozen_action_kind,
+		)
 	_set_state(outcome["state"])
 
 
@@ -230,6 +254,9 @@ func _clear_retry_context() -> void:
 	_retry_allowed = false
 	_frozen_payload_json = ""
 	_frozen_message = ""
+	_frozen_display_message = ""
+	_frozen_action_kind = "dialogue"
+	_frozen_success_display = ""
 
 
 func _disconnect_active_completion() -> void:
@@ -256,6 +283,9 @@ func _ensure_session(npc_id: String) -> void:
 		"history": [],
 		"frozen_payload_json": "",
 		"frozen_message": "",
+		"frozen_display_message": "",
+		"frozen_action_kind": "dialogue",
+		"frozen_success_display": "",
 		"state": DialogueState.IDLE,
 		"latest_reply": "",
 		"latest_trace_id": "",
@@ -270,6 +300,9 @@ func _sync_active_session() -> void:
 	session["conversation_id"] = _conversation_id
 	session["frozen_payload_json"] = _frozen_payload_json
 	session["frozen_message"] = _frozen_message
+	session["frozen_display_message"] = _frozen_display_message
+	session["frozen_action_kind"] = _frozen_action_kind
+	session["frozen_success_display"] = _frozen_success_display
 	session["state"] = state
 	session["latest_reply"] = latest_reply
 	session["latest_trace_id"] = latest_trace_id
@@ -283,6 +316,9 @@ func _restore_active_session() -> void:
 	_conversation_id = String(session["conversation_id"])
 	_frozen_payload_json = String(session["frozen_payload_json"])
 	_frozen_message = String(session["frozen_message"])
+	_frozen_display_message = String(session["frozen_display_message"])
+	_frozen_action_kind = String(session["frozen_action_kind"])
+	_frozen_success_display = String(session["frozen_success_display"])
 	state = StringName(session["state"])
 	latest_reply = String(session["latest_reply"])
 	latest_trace_id = String(session["latest_trace_id"])
@@ -290,10 +326,17 @@ func _restore_active_session() -> void:
 	_retry_allowed = bool(session["retry_allowed"])
 
 
-func _append_history(message: String, reply: String, degraded: bool) -> void:
+func _append_history(message: String, reply: String, degraded: bool, action_kind: String) -> void:
 	var session: Dictionary = _sessions[_active_npc_id]
 	var turns: Array = session.get("history", [])
-	turns.append({"message": message, "reply": reply, "degraded": degraded})
+	turns.append(
+		{
+			"message": message,
+			"reply": reply,
+			"degraded": degraded,
+			"action_kind": action_kind,
+		}
+	)
 	while turns.size() > 6:
 		turns.pop_front()
 	session["history"] = turns

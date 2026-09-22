@@ -35,9 +35,19 @@ func _run() -> void:
 		"Ui/TownUi/HealthStatus",
 		"Ui/TownUi/InteractionPrompt",
 		"Ui/TownUi/DialoguePanel",
+		"Ui/TownUi/TopicMemoryPopup",
 	]:
 		_assert_true(town.has_node(path), "town node exists: %s" % path)
 	_assert_equal(town.approved_npc_ids(), EXPECTED_IDS, "three approved NPC ids remain isolated")
+	var expected_topics := {
+		&"neon_guide": ["今晚的霓虹夜市有什么值得看的？", "霓虹夜市"],
+		&"signal_archivist": ["信号档案里有什么小镇故事？", "小镇故事"],
+		&"night_courier": ["雨夜街道会影响投递吗？", "雨夜街道"],
+	}
+	for npc_id: StringName in expected_topics:
+		var profile := town.topic_profile_for_testing(npc_id)
+		_assert_equal(profile["draft"], expected_topics[npc_id][0], "fixed topic draft: %s" % npc_id)
+		_assert_equal(profile["topic"], expected_topics[npc_id][1], "fixed memory topic: %s" % npc_id)
 
 	var player := town.player()
 	_assert_true(player != null, "player exists")
@@ -61,6 +71,14 @@ func _run() -> void:
 	_assert_true(town.open_dialogue_for_testing(&"neon_guide"), "approved NPC opens dialogue")
 	_assert_true(town.is_dialogue_open(), "dialogue state opens")
 	_assert_true(player.movement_locked, "dialogue locks player movement")
+	var topic_button := town.find_child("TopicMemoryButton", true, false) as Button
+	var topic_popup := town.find_child("TopicMemoryPopup", true, false) as PanelContainer
+	_assert_true(topic_button != null and topic_popup != null, "topic and memory menu controls exist")
+	if topic_button != null and topic_popup != null:
+		topic_button.pressed.emit()
+		_assert_true(topic_popup.visible, "topic and memory menu opens")
+		var topic_title := town.find_child("TopicMemoryTitle", true, false) as Label
+		_assert_true(topic_title != null and topic_title.text.contains("Nia"), "menu identifies active NPC")
 	town.close_dialogue_for_testing()
 	_assert_false(town.is_dialogue_open(), "dialogue state closes")
 	_assert_false(player.movement_locked, "closing dialogue restores movement")
@@ -182,6 +200,92 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 	var relationship_label := town._relationship_label as Label
 	_assert_true(relationship_label.text.contains("朋友"), "relationship stage is localized")
 	_assert_true(relationship_label.text.contains("关系升温"), "relationship delta is summarized")
+	relationship._set_state(&"unavailable")
+	_assert_equal(relationship_label.text, "关系 · 暂不可用", "failed refresh hides stale stage")
+	town.close_dialogue_for_testing()
+	_test_guided_memory_action(town, dialogue, bodies)
+
+
+func _test_guided_memory_action(town: TownScene, dialogue: Node, bodies: Array[String]) -> void:
+	_assert_true(town.open_dialogue_for_testing(&"night_courier"), "Rhea opens for guided memory")
+	var topic_button := town.find_child("TopicMemoryButton", true, false) as Button
+	var remember_button := town.find_child("TopicAction1", true, false) as Button
+	var confirm_button := town.find_child("TopicMemoryConfirmButton", true, false) as Button
+	var cancel_button := town.find_child("TopicMemoryCancelButton", true, false) as Button
+	var confirmation := town.find_child("TopicMemoryConfirmationText", true, false) as Label
+	var history := town.find_child("ConversationHistory", true, false) as RichTextLabel
+	var retry := town.find_child("RetryButton", true, false) as Button
+	_assert_true(
+		topic_button != null
+		and remember_button != null
+		and confirm_button != null
+		and cancel_button != null,
+		"guided memory controls are present",
+	)
+	if (
+		topic_button == null
+		or remember_button == null
+		or confirm_button == null
+		or cancel_button == null
+		or confirmation == null
+		or history == null
+		or retry == null
+	):
+		return
+
+	var body_count := bodies.size()
+	topic_button.pressed.emit()
+	remember_button.pressed.emit()
+	_assert_true(confirmation.text.contains("Rhea"), "confirmation identifies active NPC")
+	_assert_true(confirmation.text.contains("雨夜街道"), "confirmation identifies exact topic")
+	_assert_equal(bodies.size(), body_count, "state write does not send before confirmation")
+	cancel_button.pressed.emit()
+	_assert_equal(bodies.size(), body_count, "cancelled state write stays local")
+
+	remember_button.pressed.emit()
+	confirm_button.pressed.emit()
+	_assert_equal(dialogue.state, &"loading", "confirmed state write starts one request")
+	var first_payload_json := bodies[-1]
+	var first_payload: Dictionary = JSON.parse_string(first_payload_json)
+	_assert_equal(
+		first_payload["message"],
+		"请记住：favorite_cyber_town_topic=雨夜街道",
+		"guided action preserves deterministic raw payload",
+	)
+	_assert_true(confirm_button.disabled and cancel_button.disabled, "menu locks during request")
+	dialogue.handle_response(
+		dialogue.active_generation(),
+		HTTPRequest.RESULT_TIMEOUT,
+		0,
+		PackedByteArray(),
+	)
+	_assert_true(retry.visible and not retry.disabled, "guided action exposes exact retry")
+	retry.pressed.emit()
+	_assert_equal(bodies[-1], first_payload_json, "guided retry preserves byte-identical payload")
+	var success := _dialogue_success(
+		first_payload,
+		"已记住：favorite_cyber_town_topic。",
+		"completed",
+	)
+	dialogue.handle_response(
+		dialogue.active_generation(),
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		JSON.stringify(success).to_utf8_buffer(),
+	)
+	var rhea_history: Array[Dictionary] = dialogue.history()
+	_assert_equal(rhea_history.size(), 1, "guided retry appends one history turn")
+	_assert_equal(rhea_history[0]["action_kind"], "remember_topic", "history retains action type")
+	_assert_true(
+		String(rhea_history[0]["message"]).contains("雨夜街道"),
+		"history uses friendly display text",
+	)
+	_assert_false(
+		String(rhea_history[0]["message"]).contains("favorite_cyber_town_topic"),
+		"history hides internal fact key",
+	)
+	_assert_true(history.text.contains("系统：Rhea 已记下"), "history renders a system confirmation")
+	_assert_false(history.text.contains("favorite_cyber_town_topic"), "rendered history hides fact key")
 	town.close_dialogue_for_testing()
 
 

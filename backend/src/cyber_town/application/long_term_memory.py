@@ -12,7 +12,7 @@ from enum import StrEnum
 from uuid import UUID, uuid4
 
 from cyber_town.application.dialogue import DialogueFailureKind, DialogueUseCaseError
-from cyber_town.application.provider import ProviderLongTermFact
+from cyber_town.application.provider import ProviderLongTermFact, ProviderReplyStyle
 from cyber_town.contracts.v1 import (
     ApiErrorCode,
     DialogueRequestV1,
@@ -277,6 +277,17 @@ class LongTermMemoryRetriever:
             for record in relevant[:4]
             if record.fact_value is not None
         )
+
+    def reply_style(self, scope: LongTermMemoryScope) -> ProviderReplyStyle | None:
+        """Read the active scoped style as a trusted enum for every ordinary reply."""
+
+        if not isinstance(scope, LongTermMemoryScope):
+            raise TypeError("Long-term memory requires a validated player/NPC scope")
+        records = self._repository.active_for_scope(scope, now=self._clock())
+        record = next((item for item in records if item.fact_key == "reply_style"), None)
+        if record is None or record.fact_value is None:
+            return None
+        return ProviderReplyStyle(record.fact_value)
 
     @classmethod
     def is_recall_request(cls, query: str) -> bool:

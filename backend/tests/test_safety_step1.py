@@ -467,7 +467,12 @@ def test_provider_identity_mismatch_is_nonretryable_and_does_not_commit_state() 
     assert captured.value.retryable is False
     assert provider.call_count == 1
     assert sessions.session_count == 0
-    assert relationship_service.mock_calls == []
+    relationship_service.read.assert_called_once_with(
+        player_id="local_player",
+        npc_id="neon_guide",
+        request_id=None,
+    )
+    relationship_service.record_completed_dialogue.assert_not_called()
 
 
 def test_policy_decision_repr_and_logs_never_contain_raw_sentinel(

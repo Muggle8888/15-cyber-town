@@ -1385,3 +1385,51 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 保留的仓库外临时文件：`E:/Agent/.codex-temp/cyber-town-f010-pr.md`，2,038 bytes，仅含已公开 PR 描述；可由用户手动删除。Codex 未执行删除，当前磁盘回收量为 0 bytes。
 - `feat/playable-town` 历史任务分支按项目规则保留。候选 `NPC-RETURN-VISIT` 未建立任务卡、未分配正式编号、未进入开发。
 - 通过项：Nia 身份与同会话多轮名字召回；确定性本地长期事实写入零 Provider 调用；服务重建后 Nia 召回 `霓虹夜市`；Ivo 身份与 Provider 边界无 Nia 长期事实；Rhea 身份与关系事件；关系事件未跨 NPC 泄漏。原始玩家文本、完整模型回复、密钥、Provider body 和 reasoning 均未写入日志或文档。
+
+## 2026-09-22 F-011 实现、视觉门禁与离线质量
+
+- 用户批准 `F-011 NPC 回访体验强化`，从干净 `main@2f48184dba8f352f36335d339ed2fd7b6c3ee93d` 创建 `feat/f-011-npc-return-visit`。本轮授权覆盖本地实现与离线测试，不覆盖真实模型调用或 Git 交付。
+- 首个 Godot 实机视觉门禁为 `docs/design/npc-return-visit/godot-menu-normal-v1.png`，640×360；用户明确通过。弹层复用 F-010 视觉系统，没有下载或生成新美术资源。
+- 客户端：三名 NPC 固定主题与草稿、普通话题填入、状态写入二次确认、确定性原始载荷与自然中文展示分离、动作类型与成功提示冻结、精确手动重试、请求期锁定及每 NPC 会话隔离已实现。关系 UI 区分获取中、已验证和暂不可用；空历史开场白只使用本次已验证的关系阶段。
+- 后端：公开 Dialogue v1 与 relationship GET Schema 未改。ProviderRequest 新增严格枚举的可选关系阶段与回复风格；`f-011-relationship-style-v1` 受控说明在 Persona 后追加，只有阶段/风格枚举进入 Provider，不包含分数、规则码或其他 NPC 数据。关系读取失败或未知阶段省略上下文；持续回复风格按当前 NPC 长期事实读取；主题事实仍只在问题匹配“话题/主题”等规则时注入。
+- 自动验证：F-011 专项覆盖四阶段、两风格、无效阶段降级、写入零 Provider、主题匹配、跨 NPC 隔离、服务重启持久化、忘记后确定性降级，以及关系变化从下一次 Provider 请求生效。Godot `TOWN_TESTS=PASS`，既有对话与连接回归通过；独立 18010 Fake 城镇回环输出 `GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3` 并自动释放端口。
+- 首次统一质量在 pytest 发现 1 个旧安全测试预期不再成立：测试要求无任何关系服务调用，而 F-011 合同要求 Provider dispatch 前进行只读关系查询；当时为 2131 passed、969 skipped、1 failed。最小修复严格校验读回阶段，未知值省略，并将旧测试改为允许一次只读调用、继续禁止关系写入；受影响 20 项通过。
+- 修复后完整统一质量通过：Ruff、strict mypy（135 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、诊断三 NPC 与城镇回环、pytest 2133 passed/969 skipped/0 failed、前后 ignore policy 与敏感信息检查全部通过。结束时 `8000`、`18010` 均空闲。
+- 当前仍未执行用户完整 F-011 试玩、真实模型 UAT、`.env` 读取、commit、push、PR、合并或资源删除。任务状态为 `PENDING_USER_UAT`。
+
+## 2026-09-22 F-011 用户 Fake 模式试玩通过
+
+- 用户在本轮 `scripts/dialogue_integration.py --town-demo` 启动的独立 `127.0.0.1:18010` 窗口中完成 F-011 实际试玩，并明确回复“试玩通过，已关闭”。该确认覆盖玩家可见的话题与记忆弹层、确认流程、三 NPC 内容与会话隔离、中文信息层级和整体操作体验；用户未报告需要修复的问题。
+- Fake Provider 的固定普通回复不构成 Persona、真实语义召回、关系阶段语气或回复风格质量证据；这些项目仍保留给另行授权的真实模型 UAT。服务重启持久化、零 Provider 状态写入和受控上下文已由离线自动测试覆盖，但自动验证不替代真实模型体验。
+- 用户关闭窗口后只读复核：`127.0.0.1:18010` 无监听，项目 Godot 试玩进程不存在；未根据历史 PID 停止进程，也未删除资源。
+- 任务状态推进为 `PENDING_REAL_PROVIDER_UAT`。当前仍未读取真实 Provider 配置或 `.env`、调用真实模型、commit、push、创建 PR、合并或修改远端；真实模型 UAT 与 Git 交付继续分别等待明确授权。
+
+## 2026-09-22 F-011 真实模型 UAT 授权与资源预登记
+
+- 用户明确授权：先完成 F-011 runner、验收步骤和相关测试的最小离线扩展；离线门禁通过后读取项目 `.env` 中的本地 DeepSeek 测试凭据并执行真实 UAT。模型为 `deepseek-flash`，计划 6 次、调用硬上限 8 次、SDK 自动重试 0；USD 0.05 和调用数任一先到即停。授权不包含 commit、push、PR、合并或资源删除。
+- 官方 2026-09-22 当前峰值按缓存未命中输入 USD 0.30/M token、输出 USD 1.20/M token。现有绝对单次上界为 32,768 输入和 256 输出，对应保守预留 10,138 micro-USD；6 次和 8 次的绝对最坏费用分别高于 USD 0.05，因此账本必须在每次调用前按保守单次上界预留，并在费用或调用数任一先到时拒绝后续调用，不承诺极端 token 用量下完成全部计划调用。
+- 预登记业务与控制数据根：`E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-011`；预登记验收账本：`E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-011.sqlite3`。内容仅限低敏感结构化主题、回复风格、确定性关系状态、控制元数据以及调用数/token/费用/时间戳；不保存原始玩家文本、完整回复、Provider body、完整 system prompt、密钥或 reasoning。
+- 两项资源归属 `F-011 / Step 4 real-provider UAT`，预计保留至 F-011 Git 交付完成并由用户决定处置。Codex 不自动删除；创建前仍需通过路径、reparse、端口、账本和离线 runner 门禁。登记时资源尚未创建。
+
+## 2026-09-22 F-011 真实模型 UAT 离线门禁
+
+- 新增 F-011 专用验收步骤、8 次调用与 50,000 micro-USD 双硬门禁、内容脱敏 runner，以及 Fake readiness、凭据隔离、授权标识、调用与费用上限测试。离线预检不读取 `.env`、不创建 UAT 资源，也不访问外部服务。
+- 首次完整质量入口只在新增测试的可选枚举静态类型检查失败，业务逻辑和真实 Provider 均未执行；最小修复显式处理 `None` 后，相关定向测试通过。
+- 最终执行 `uv run --frozen python scripts/quality.py`：Ruff、strict mypy（137 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、诊断三 NPC 与城镇 Fake 回环、前后 ignore policy 与敏感信息检查全部通过；pytest 为 2138 passed、969 个既有条件 skip、0 failed，入口输出 `[quality] all checks passed`。
+- 离线预检输出 `F011_REAL_UAT_OFFLINE_PREFLIGHT=PASS`；随后在已授权范围内读取本地测试配置完成凭据预检，输出 `F011_REAL_UAT_CREDENTIAL_PREFLIGHT=PASS`，未显示或记录凭据，也未在预检阶段创建隔离资源。
+
+## 2026-09-22 F-011 真实模型 UAT 完成
+
+- 执行前再次确认 `127.0.0.1:8000` 与 `127.0.0.1:18010` 空闲，且预登记的 F-011 隔离数据根与验收账本均不存在。真实 UAT 只执行一次，使用 `deepseek-flash`、SDK 自动重试 0、计划 6 次、调用硬上限 8 次和 USD 0.05 费用先到即停门禁。
+- Runner 输出 `F011_REAL_UAT=PASS`：6 次调用、6 项检查全部通过，累计 2111 输入 token、336 输出 token、1039 micro-USD（USD 0.001039），未决调用 0；未消耗额外失败重试。
+- 验收覆盖 Nia、Ivo、Rhea 各一次独立主题召回与一次 Persona/关系阶段/回复风格组合检查。计费前边界断言确认召回请求只包含当前 NPC 的预期主题，Persona/风格请求不注入主题，并核对严格关系阶段、回复风格和 Persona 归属。
+- 控制台与文档只记录状态、调用数、检查数、token、费用和时间戳；未记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
+- 执行后 `8000` 与 `18010` 仍为空闲。保留资源为 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-011`（2 个文件、262,144 bytes）和 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-011.sqlite3`（24,576 bytes）；Codex 未删除或提交这些受忽略资源。
+- F-011 当前为 `READY_FOR_GIT_DELIVERY`。commit、push、PR、合并和资源处置仍未授权，任务在 Git 交付与合并后证据完成前不标记为已归档。
+
+## 2026-09-22 F-011 Git 交付授权与初始门禁
+
+- 用户明确授权完成 F-011 的精确审查与暂存、commit、push、创建 PR、等待 CI、通过后合并并完成归档。授权不包含强推、删除本地或远程分支、tag、发布或任何资源删除。
+- 交付前只读核验：当前分支 `feat/f-011-npc-return-visit`、HEAD `2f48184dba8f352f36335d339ed2fd7b6c3ee93d`，与本地 `main` 和本地跟踪引用 `origin/main` 基线一致；远端为 `https://github.com/Muggle8888/15-cyber-town.git`。该远端状态尚未 fetch 刷新，推送前仍须获取并核对最新状态。
+- F-011 UAT 资源继续被 `.gitignore` 排除，不进入提交。预登记 PR 正文临时文件为 `E:\Agent\.codex-temp\cyber-town-f011-pr.md`，只保存用户可见的 PR 标题与描述，不含密钥或运行时数据；保留至交付结束，由用户决定后续处置，Codex 不删除。
+- 交付按两个内部门禁执行：首次功能提交与 PR HEAD CI 通过后，才在同一 PR 准备任务卡归档和当前状态重置；归档提交改变 PR HEAD 后必须等待新的最终 CI 通过，才允许 squash merge。

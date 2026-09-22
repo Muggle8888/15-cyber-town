@@ -86,7 +86,7 @@ class DeepSeekProvider:
         messages: list[ChatCompletionMessageParam] = [
             {
                 "role": "system",
-                "content": request.system_prompt + "\n\n" + _RELATIONSHIP_JSON_INSTRUCTION,
+                "content": request.system_content() + "\n\n" + _RELATIONSHIP_JSON_INSTRUCTION,
             }
         ]
         for fact in request.long_term_facts:
