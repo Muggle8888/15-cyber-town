@@ -277,16 +277,28 @@ def _run_town_godot(godot: Path, port: int = TOWN_PORT) -> None:
             "--",
             f"--base-url=http://{HOST}:{port}",
             "--skip-health-check",
+            "--event-save-path=res://.godot/f013-event-state-fake.json",
         ],
         cwd=PROJECT_ROOT,
         check=True,
     )
 
 
+def _town_demo_executable(godot: Path) -> Path:
+    """Prefer the GUI binary so closing its window ends the demo process."""
+
+    console_suffix = "_console.exe"
+    if godot.name.casefold().endswith(console_suffix):
+        gui = godot.with_name(godot.name[: -len(console_suffix)] + ".exe")
+        if gui.is_file():
+            return gui
+    return godot
+
+
 def _run_town_demo_godot(godot: Path, port: int = TOWN_PORT) -> None:
     subprocess.run(
         [
-            str(godot),
+            str(_town_demo_executable(godot)),
             "--path",
             str(PROJECT_ROOT / "game"),
             "--",
@@ -362,12 +374,28 @@ def run(godot: Path) -> None:
             raise RuntimeError("multi-NPC switch leaked short-term history across conversations")
 
     # Exercise the product town scene through the same fake-only HTTP boundary.
-    with _fake_application(multi_npc_outcomes) as (application, provider):
+    town_outcomes = multi_npc_outcomes + tuple(
+        _completion(f"{display_name} advances the synthetic twilight signal event.")
+        for display_name in ("Nia", "Ivo", "Rhea", "Nia")
+    )
+    town_npc_order = (
+        "neon_guide",
+        "signal_archivist",
+        "night_courier",
+        "neon_guide",
+        "signal_archivist",
+        "night_courier",
+        "neon_guide",
+    )
+    with _fake_application(town_outcomes) as (application, provider):
         with _fixture_server(application, TOWN_PORT):
             _run_town_godot(godot, TOWN_PORT)
-        if provider.call_count != 3:
-            raise RuntimeError("town loopback expected exactly three fake provider calls")
-        if tuple(request.system_prompt for request in provider.requests) != expected_prompts:
+        if provider.call_count != 7:
+            raise RuntimeError("town loopback expected exactly seven fake provider calls")
+        if any(
+            not request.system_prompt.startswith(personas[npc_id].system_prompt)
+            for request, npc_id in zip(provider.requests, town_npc_order, strict=True)
+        ):
             raise RuntimeError("town loopback did not preserve persona prompt ownership")
 
     if _port_is_open():
@@ -385,19 +413,27 @@ def run_town_only(godot: Path) -> None:
         raise RuntimeError(f"refusing to replace existing listener on {HOST}:{TOWN_PORT}")
     outcomes = tuple(
         _completion(f"{display_name} returns an isolated synthetic reply.")
-        for display_name in ("Nia", "Ivo", "Rhea")
+        for display_name in ("Nia", "Ivo", "Rhea", "Nia", "Ivo", "Rhea", "Nia")
     )
     with _fake_application(outcomes) as (application, provider):
         with _fixture_server(application, TOWN_PORT):
             _run_town_godot(godot, TOWN_PORT)
-        if provider.call_count != 3:
-            raise RuntimeError("town loopback expected exactly three fake provider calls")
+        if provider.call_count != 7:
+            raise RuntimeError("town loopback expected exactly seven fake provider calls")
         personas = load_bundled_personas()
-        expected_prompts = tuple(
-            personas[npc_id].system_prompt
-            for npc_id in ("neon_guide", "signal_archivist", "night_courier")
+        npc_order = (
+            "neon_guide",
+            "signal_archivist",
+            "night_courier",
+            "neon_guide",
+            "signal_archivist",
+            "night_courier",
+            "neon_guide",
         )
-        if tuple(request.system_prompt for request in provider.requests) != expected_prompts:
+        if any(
+            not request.system_prompt.startswith(personas[npc_id].system_prompt)
+            for request, npc_id in zip(provider.requests, npc_order, strict=True)
+        ):
             raise RuntimeError("town loopback did not preserve persona prompt ownership")
     if _port_is_open(TOWN_PORT):
         raise RuntimeError("town integration left its loopback listener running")

@@ -111,10 +111,74 @@ func _run() -> void:
 	):
 		_fail("Nia conversation and history were not restored")
 		return
-	print("GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3")
+	_town.close_dialogue_for_testing()
+	if not await _run_twilight_signal_event():
+		return
+	print("GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3 event=completed")
 	_town.queue_free()
 	await process_frame
 	quit(0)
+
+
+func _run_twilight_signal_event() -> bool:
+	_town.reset_event_for_testing()
+	if not await _send_event_step(&"neon_guide", &"guide_clue"):
+		return false
+	if not _record_event_clue(&"twilight_guide_board", &"ivo_analysis"):
+		return false
+	if not await _send_event_step(&"signal_archivist", &"signal_clue"):
+		return false
+	if not _record_event_clue(&"signal_calibration_station", &"rhea_route"):
+		return false
+	if not await _send_event_step(&"night_courier", &"delivery_clue"):
+		return false
+	if not _record_event_clue(&"rain_delivery_board", &"nia_conclusion"):
+		return false
+	if not await _send_event_step(&"neon_guide", &"completed"):
+		return false
+	return true
+
+
+func _send_event_step(npc_id: StringName, expected_next_stage: StringName) -> bool:
+	if not _town.open_dialogue_for_testing(npc_id):
+		_fail("event NPC could not open: %s" % npc_id)
+		return false
+	var topic_button := _town.find_child("TopicMemoryButton", true, false) as Button
+	var event_button := _town.find_child("TopicAction7", true, false) as Button
+	if topic_button == null or event_button == null:
+		_fail("event dialogue controls were not available")
+		return false
+	topic_button.pressed.emit()
+	if not event_button.visible:
+		_fail("event action was not visible for current NPC: %s" % npc_id)
+		return false
+	event_button.pressed.emit()
+	if _input.text.is_empty():
+		_fail("event action did not fill a visible draft")
+		return false
+	_input.text += " 我想确认这条线索。"
+	_input.text_changed.emit(_input.text)
+	_send.pressed.emit()
+	if not await _wait_for_dialogue_state(&"success"):
+		return false
+	await _wait_for_relationship_snapshot()
+	if _town.event_stage_for_testing() != expected_next_stage:
+		_fail("completed event request did not advance to %s" % expected_next_stage)
+		return false
+	_town.close_dialogue_for_testing()
+	return true
+
+
+func _record_event_clue(landmark_id: StringName, expected_next_stage: StringName) -> bool:
+	if not _town.open_observation_for_testing(landmark_id):
+		_fail("event landmark could not open: %s" % landmark_id)
+		return false
+	_town.remember_observation_for_testing()
+	if _town.event_stage_for_testing() != expected_next_stage:
+		_fail("event clue did not advance to %s" % expected_next_stage)
+		return false
+	_town.close_observation_for_testing()
+	return true
 
 
 func _wait_for_dialogue_state(expected: StringName) -> bool:
@@ -129,7 +193,7 @@ func _wait_for_dialogue_state(expected: StringName) -> bool:
 
 func _wait_for_relationship_snapshot() -> void:
 	var deadline := Time.get_ticks_msec() + 3000
-	while not _relationship.has_verified_snapshot and Time.get_ticks_msec() < deadline:
+	while _relationship.state == &"loading" and Time.get_ticks_msec() < deadline:
 		await process_frame
 
 
