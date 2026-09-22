@@ -1563,3 +1563,12 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 唯一实际 Provider 批次输出 `F013_REAL_UAT=PASS`：6 次调用、6 项检查、0 次语义补测、1861 输入 token、631 输出 token、1318 micro-USD（USD 0.001318）、未决 0。检查覆盖 Nia 开场、Ivo 核对、Rhea 路线、Nia 归档四次主线语义，以及 Nia acquaintance 与 Rhea trusted_ally 下的 Persona/关系一致性。
 - runner 在计费前断言玩家可见文本、NPC、Persona 和关系阶段归属，长期事实、隐藏历史和回复风格均为空；控制台、台账与文档不记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
 - 执行后 `8000` 与 `18010` 均空闲。保留资源为 `data/uat/f-013`（2 个文件、266,240 bytes）与 `data/acceptance-ledgers/f-013.sqlite3`（24,576 bytes），均非 reparse point并受 Git ignore；Codex 未删除资源。当前状态为 `READY_FOR_GIT_DELIVERY`。
+
+## 2026-09-22 F-013 首次 PR CI 与待生效归档
+
+- 用户在明确列出真实模型 UAT 与 Git 交付剩余项后要求继续完成，授权精确审查、commit、push、PR、CI、合并与归档；不包含资源删除、强推、分支删除、tag 或发布。
+- `origin/main` 刷新后仍为 `5d60d3458e9ef67b2e5327f38cf661a7336ffddb`，与功能分支基线 0/0 分歧。精确暂存 20 个文件，staged diff check、0 finding 敏感信息扫描和运行时资源排除门禁通过；F-013 UAT 数据、账本和 Godot 合成存档均未进入索引。
+- 功能提交为 `b7fe341da816b4303aa0d12ce7e4ee48ae0d3126`。分支 `feat/f-013-twilight-signal-event` 已推送，PR [#18](https://github.com/Muggle8888/15-cyber-town/pull/18) 以 `main` 为 base 创建。
+- 首次 HEAD `b7fe341` 的 Quality run [`35732218406`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35732218406) 于 1 分 53 秒内完成并通过，PR 状态可合并。
+- 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-013-twilight-lost-signal.md` 和 `F-013-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #18 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
+- 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
