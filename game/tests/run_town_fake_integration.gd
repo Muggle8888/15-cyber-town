@@ -43,6 +43,14 @@ func _run() -> void:
 		_fail("town dialogue controls were not available")
 		return
 	_town.set_backend_available_for_testing(true)
+	if not _town.open_observation_for_testing(&"twilight_guide_board"):
+		_fail("Nia landmark observation did not open")
+		return
+	_town.remember_observation_for_testing()
+	_town.close_observation_for_testing()
+	if not _town.has_discovery_for_npc(&"neon_guide"):
+		_fail("Nia street discovery was not retained for this game startup")
+		return
 
 	for npc: Dictionary in NPCS:
 		if not _town.open_dialogue_for_testing(npc["npc_id"]):
@@ -53,7 +61,29 @@ func _run() -> void:
 			_fail("different NPCs shared a conversation id")
 			return
 		_conversation_ids[conversation_id] = String(npc["npc_id"])
-		_input.text = "只属于%s的离线测试。" % npc["display_name"]
+		var expected_message := "只属于%s的离线测试。" % npc["display_name"]
+		var topic_button := _town.find_child("TopicMemoryButton", true, false) as Button
+		var discovery_action := _town.find_child("TopicAction6", true, false) as Button
+		if topic_button == null or discovery_action == null:
+			_fail("street discovery menu controls were not available")
+			return
+		topic_button.pressed.emit()
+		if npc["npc_id"] == &"neon_guide":
+			if not discovery_action.visible:
+				_fail("Nia street discovery action was not visible")
+				return
+			discovery_action.pressed.emit()
+			var frozen_draft := "我在暮光导览牌上看到傍晚夜市灯带的标记，你会怎么带我逛？"
+			if _input.text != frozen_draft:
+				_fail("street discovery action did not fill the frozen visible draft")
+				return
+			expected_message = frozen_draft + " 我还想知道路线。"
+		else:
+			if discovery_action.visible:
+				_fail("Nia street discovery leaked into %s menu" % npc["display_name"])
+				return
+			topic_button.pressed.emit()
+		_input.text = expected_message
 		_input.text_changed.emit(_input.text)
 		_send.pressed.emit()
 		if not await _wait_for_dialogue_state(&"success"):
@@ -62,6 +92,7 @@ func _run() -> void:
 			_dialogue.active_npc_id() != String(npc["npc_id"])
 			or _dialogue.history().size() != 1
 			or not _history.text.contains(String(npc["display_name"]))
+			or String(_dialogue.history()[0]["message"]) != expected_message
 		):
 			_fail("NPC reply was not retained in the correct town session")
 			return

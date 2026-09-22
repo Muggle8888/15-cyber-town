@@ -31,6 +31,38 @@ const NPC_TOPIC_PROFILES := {
 		"draft": "雨夜街道会影响投递吗？",
 	},
 }
+const LANDMARK_PROFILES := {
+	&"twilight_guide_board": {
+		"display_name": "暮光导览牌",
+		"short_label": "导览牌",
+		"observation": "导览牌标出一条只在傍晚亮起的夜市灯带。",
+		"npc_id": &"neon_guide",
+		"npc_name": "Nia",
+		"discussion_draft": "我在暮光导览牌上看到傍晚夜市灯带的标记，你会怎么带我逛？",
+		"position": Vector2(142, 268),
+		"accent": "#70d6c8",
+	},
+	&"signal_calibration_station": {
+		"display_name": "信号校准台",
+		"short_label": "校准台",
+		"observation": "校准记录中反复出现同一段旧广播编号。",
+		"npc_id": &"signal_archivist",
+		"npc_name": "Ivo",
+		"discussion_draft": "我在信号校准台看到一段重复的旧广播编号，你知道它的来历吗？",
+		"position": Vector2(620, 244),
+		"accent": "#73b9d8",
+	},
+	&"rain_delivery_board": {
+		"display_name": "雨棚投递板",
+		"short_label": "投递板",
+		"observation": "投递板上留有一条褪色的雨夜路线标记。",
+		"npc_id": &"night_courier",
+		"npc_name": "Rhea",
+		"discussion_draft": "我在雨棚投递板看到一条褪色的雨夜路线标记，它现在还在使用吗？",
+		"position": Vector2(692, 276),
+		"accent": "#e9945f",
+	},
+}
 
 @onready var _ground: Node2D = $Ground
 @onready var _world: Node2D = $World
@@ -61,7 +93,16 @@ var _topic_memory_confirmation: VBoxContainer
 var _topic_memory_confirmation_label: Label
 var _topic_memory_confirm_button: Button
 var _topic_memory_cancel_button: Button
+var _observation_card: PanelContainer
+var _observation_title: Label
+var _observation_body: Label
+var _observation_target: Label
+var _observation_close_button: Button
+var _observation_remember_button: Button
 var _pending_guided_action: Dictionary = {}
+var _discovered_landmarks: Dictionary = {}
+var _active_landmark_id: StringName = &""
+var _observation_open := false
 var _health_client: Node
 var _dialogue_client: Node
 var _relationship_client: Node
@@ -92,9 +133,17 @@ func _ready() -> void:
 	_build_audio()
 	if not _capture_path.is_empty():
 		_set_health_state(&"connected")
-		_open_dialogue(&"neon_guide")
-		if _has_user_argument("--capture-topic-menu"):
-			_set_topic_memory_popup_visible(true)
+		if _has_user_argument("--capture-observation-card"):
+			_show_observation_capture_state()
+		else:
+			if _has_user_argument("--capture-context-topic-menu"):
+				_discovered_landmarks[&"twilight_guide_board"] = true
+			_open_dialogue(&"neon_guide")
+			if (
+				_has_user_argument("--capture-topic-menu")
+				or _has_user_argument("--capture-context-topic-menu")
+			):
+				_set_topic_memory_popup_visible(true)
 		_capture_after_render.call_deferred()
 	elif _has_user_argument("--skip-health-check"):
 		_set_health_state(&"unavailable")
@@ -114,24 +163,32 @@ func _exit_tree() -> void:
 
 func _process(_delta: float) -> void:
 	_fill_ambient()
+	if _observation_open:
+		return
 	if not is_instance_valid(_player) or _dialogue_open:
 		return
-	var closest := nearest_npc(_player.global_position, INTERACTION_DISTANCE)
-	if closest == null:
+	var closest := nearest_interaction_target(_player.global_position, INTERACTION_DISTANCE)
+	if closest.is_empty():
 		_prompt_label.visible = false
 		return
-	_prompt_label.text = "E  与 %s 交谈" % closest.display_name
+	_prompt_label.text = _prompt_for_target(closest)
 	_prompt_label.visible = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("close_dialogue") and _dialogue_open:
+	if event.is_action_pressed("close_dialogue") and _observation_open:
+		_close_observation()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("close_dialogue") and _dialogue_open:
 		_close_dialogue()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("interact") and not _dialogue_open:
-		var closest := nearest_npc(_player.global_position, INTERACTION_DISTANCE)
-		if closest != null:
-			_open_dialogue(StringName(closest.npc_id))
+	elif event.is_action_pressed("interact") and not _dialogue_open and not _observation_open:
+		var closest := nearest_interaction_target(_player.global_position, INTERACTION_DISTANCE)
+		if not closest.is_empty():
+			if StringName(closest["kind"]) == &"npc":
+				_open_dialogue(StringName(closest["id"]))
+			else:
+				_open_observation(StringName(closest["id"]))
 			get_viewport().set_input_as_handled()
 
 
@@ -146,10 +203,50 @@ func nearest_npc(origin: Vector2, maximum_distance: float) -> TownNpcActor:
 	return best
 
 
+func nearest_interaction_target(origin: Vector2, maximum_distance: float) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := maximum_distance
+	for npc: TownNpcActor in _npcs:
+		var distance := origin.distance_to(npc.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = {
+				"kind": &"npc",
+				"id": StringName(npc.npc_id),
+				"display_name": npc.display_name,
+				"distance": distance,
+			}
+	for landmark_id: StringName in LANDMARK_PROFILES:
+		var profile: Dictionary = LANDMARK_PROFILES[landmark_id]
+		var distance: float = origin.distance_to(profile["position"])
+		if distance < best_distance:
+			best_distance = distance
+			best = {
+				"kind": &"landmark",
+				"id": landmark_id,
+				"display_name": String(profile["display_name"]),
+				"distance": distance,
+			}
+	return best
+
+
+func _prompt_for_target(target: Dictionary) -> String:
+	if StringName(target.get("kind", &"")) == &"npc":
+		return "E  与 %s 交谈" % String(target.get("display_name", ""))
+	return "E  查看%s" % String(target.get("display_name", ""))
+
+
 func approved_npc_ids() -> Array[StringName]:
 	var ids: Array[StringName] = []
 	for npc: TownNpcActor in _npcs:
 		ids.append(StringName(npc.npc_id))
+	return ids
+
+
+func approved_landmark_ids() -> Array[StringName]:
+	var ids: Array[StringName] = []
+	for landmark_id: StringName in LANDMARK_PROFILES:
+		ids.append(landmark_id)
 	return ids
 
 
@@ -163,6 +260,38 @@ func open_dialogue_for_testing(npc_id: StringName) -> bool:
 
 func close_dialogue_for_testing() -> void:
 	_close_dialogue()
+
+
+func open_observation_for_testing(landmark_id: StringName) -> bool:
+	return _open_observation(landmark_id)
+
+
+func close_observation_for_testing() -> void:
+	_close_observation()
+
+
+func remember_observation_for_testing() -> void:
+	_remember_observation()
+
+
+func is_observation_open() -> bool:
+	return _observation_open
+
+
+func has_discovered_landmark(landmark_id: StringName) -> bool:
+	return bool(_discovered_landmarks.get(landmark_id, false))
+
+
+func has_discovery_for_npc(npc_id: StringName) -> bool:
+	var profile := _landmark_profile_for_npc(npc_id)
+	return (
+		not profile.is_empty()
+		and bool(_discovered_landmarks.get(StringName(profile["landmark_id"]), false))
+	)
+
+
+func landmark_profile_for_testing(landmark_id: StringName) -> Dictionary:
+	return (LANDMARK_PROFILES.get(landmark_id, {}) as Dictionary).duplicate(true)
 
 
 func dialogue_client_for_testing() -> Node:
@@ -234,11 +363,68 @@ func _build_landmarks() -> void:
 	_add_neon_sign(Vector2(786, 173), Color("#e9945f"), "POST")
 	_add_lamp(Vector2(285, 226))
 	_add_lamp(Vector2(666, 226))
+	for landmark_id: StringName in LANDMARK_PROFILES:
+		_add_exploration_landmark(landmark_id, LANDMARK_PROFILES[landmark_id])
 	_add_static_collision(Rect2(72, 86, 173, 105), "GuideHouseCollision")
 	_add_static_collision(Rect2(395, 82, 198, 112), "ArchiveHouseCollision")
 	_add_static_collision(Rect2(722, 104, 116, 88), "CourierHouseCollision")
 	_add_static_collision(Rect2(8, 382, 120, 92), "TreeCollisionLeft")
 	_add_static_collision(Rect2(835, 395, 108, 92), "TreeCollisionRight")
+
+
+func _add_exploration_landmark(landmark_id: StringName, profile: Dictionary) -> void:
+	var root := Node2D.new()
+	root.name = "Landmark%s" % String(landmark_id).to_pascal_case()
+	root.position = profile["position"]
+	root.z_index = 1
+	_world.add_child(root)
+
+	var panel := ColorRect.new()
+	panel.position = Vector2(-21, -27)
+	panel.size = Vector2(42, 23)
+	panel.color = Color("#2d263d")
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(panel)
+	var accent := ColorRect.new()
+	accent.position = Vector2(3, 3)
+	accent.size = Vector2(36, 3)
+	accent.color = Color(String(profile["accent"]))
+	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(accent)
+	var mark := Label.new()
+	mark.position = Vector2(0, 6)
+	mark.size = Vector2(42, 15)
+	mark.text = "◆"
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.add_theme_font_override("font", _ui_font)
+	mark.add_theme_font_size_override("font_size", 10)
+	mark.add_theme_color_override("font_color", Color(String(profile["accent"])))
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(mark)
+	for x: float in [-15.0, 12.0]:
+		var leg := ColorRect.new()
+		leg.position = Vector2(x, -4)
+		leg.size = Vector2(3, 10)
+		leg.color = Color("#352b42")
+		leg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(leg)
+	var label := Label.new()
+	label.position = Vector2(-42, 7)
+	label.size = Vector2(84, 16)
+	label.text = String(profile["short_label"])
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", _ui_font)
+	label.add_theme_font_size_override("font_size", 9)
+	label.add_theme_color_override("font_color", Color("#f3dbc1"))
+	label.add_theme_color_override("font_shadow_color", Color("#171326"))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(label)
+	_add_static_collision(
+		Rect2(Vector2(profile["position"]) + Vector2(-21, -27), Vector2(42, 23)),
+		"%sCollision" % root.name,
+	)
 
 
 func _add_building(node_name: String, position: Vector2, region: Rect2, scale_value: float) -> void:
@@ -521,13 +707,150 @@ func _build_ui() -> void:
 	input_row.add_child(_topic_memory_button)
 
 	_build_topic_memory_popup(root)
+	_build_observation_card(root)
+
+
+func _build_observation_card(root: Control) -> void:
+	_observation_card = PanelContainer.new()
+	_observation_card.name = "ObservationCard"
+	_observation_card.position = Vector2(246, 72)
+	_observation_card.size = Vector2(380, 154)
+	_observation_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("#211b35f7"), Color("#70d6c8"), 2),
+	)
+	_observation_card.visible = false
+	root.add_child(_observation_card)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 9)
+	margin.add_theme_constant_override("margin_bottom", 9)
+	_observation_card.add_child(margin)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 5)
+	margin.add_child(content)
+
+	var eyebrow := Label.new()
+	eyebrow.text = "街区发现"
+	eyebrow.add_theme_font_size_override("font_size", 9)
+	eyebrow.add_theme_color_override("font_color", Color("#70d6c8"))
+	content.add_child(eyebrow)
+
+	_observation_title = Label.new()
+	_observation_title.name = "ObservationTitle"
+	_observation_title.text = "暮光导览牌"
+	_observation_title.add_theme_font_size_override("font_size", 16)
+	_observation_title.add_theme_color_override("font_color", Color("#ffca7a"))
+	content.add_child(_observation_title)
+
+	_observation_body = Label.new()
+	_observation_body.name = "ObservationBody"
+	_observation_body.text = "导览牌标出一条只在傍晚亮起的夜市灯带。"
+	_observation_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_observation_body.add_theme_font_size_override("font_size", 11)
+	_observation_body.add_theme_color_override("font_color", Color("#eee6dc"))
+	content.add_child(_observation_body)
+
+	var action_row := HBoxContainer.new()
+	action_row.add_theme_constant_override("separation", 6)
+	content.add_child(action_row)
+	_observation_target = Label.new()
+	_observation_target.name = "ObservationTarget"
+	_observation_target.text = "可带去和 Nia 讨论"
+	_observation_target.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_observation_target.add_theme_font_size_override("font_size", 9)
+	_observation_target.add_theme_color_override("font_color", Color("#aeb8c9"))
+	action_row.add_child(_observation_target)
+	_observation_close_button = Button.new()
+	_observation_close_button.name = "ObservationCloseButton"
+	_observation_close_button.text = "关闭 Esc"
+	_observation_close_button.add_theme_font_size_override("font_size", 9)
+	_observation_close_button.pressed.connect(_close_observation)
+	action_row.add_child(_observation_close_button)
+	_observation_remember_button = Button.new()
+	_observation_remember_button.name = "ObservationRememberButton"
+	_observation_remember_button.text = "记下话题"
+	_observation_remember_button.add_theme_font_size_override("font_size", 9)
+	_observation_remember_button.pressed.connect(_remember_observation)
+	action_row.add_child(_observation_remember_button)
+
+
+func _show_observation_capture_state() -> void:
+	_player.position = Vector2(174, 270)
+	_open_observation(&"twilight_guide_board")
+	_prompt_label.text = "E  查看暮光导览牌"
+	_prompt_label.visible = true
+
+
+func _open_observation(landmark_id: StringName) -> bool:
+	if (
+		_dialogue_open
+		or _observation_open
+		or not LANDMARK_PROFILES.has(landmark_id)
+		or _dialogue_client.is_request_in_flight()
+	):
+		return false
+	var profile: Dictionary = LANDMARK_PROFILES[landmark_id]
+	_active_landmark_id = landmark_id
+	_observation_open = true
+	_observation_title.text = String(profile["display_name"])
+	_observation_body.text = String(profile["observation"])
+	var remembered := bool(_discovered_landmarks.get(landmark_id, false))
+	_observation_target.text = "%s可带去和 %s 讨论" % [
+		"已记下 · " if remembered else "",
+		String(profile["npc_name"]),
+	]
+	_observation_remember_button.text = "已记下" if remembered else "记下话题"
+	_observation_remember_button.disabled = remembered
+	_observation_card.visible = true
+	_prompt_label.text = "E  查看%s" % String(profile["display_name"])
+	_prompt_label.visible = true
+	_player.set_movement_locked(true)
+	_play_interaction_sound()
+	return true
+
+
+func _close_observation() -> void:
+	if not _observation_open:
+		return
+	_observation_open = false
+	_active_landmark_id = &""
+	_observation_card.visible = false
+	_prompt_label.visible = false
+	if is_instance_valid(_player):
+		_player.set_movement_locked(false)
+	_play_ui_sound()
+
+
+func _remember_observation() -> void:
+	if not _observation_open or not LANDMARK_PROFILES.has(_active_landmark_id):
+		return
+	_discovered_landmarks[_active_landmark_id] = true
+	var profile: Dictionary = LANDMARK_PROFILES[_active_landmark_id]
+	_observation_target.text = "已记下 · 可带去和 %s 讨论" % String(profile["npc_name"])
+	_observation_remember_button.text = "已记下"
+	_observation_remember_button.disabled = true
+	_play_ui_sound()
+
+
+func _landmark_profile_for_npc(npc_id: StringName) -> Dictionary:
+	for landmark_id: StringName in LANDMARK_PROFILES:
+		var profile: Dictionary = LANDMARK_PROFILES[landmark_id]
+		if StringName(profile["npc_id"]) == npc_id:
+			var result := profile.duplicate(true)
+			result["landmark_id"] = landmark_id
+			return result
+	return {}
 
 
 func _build_topic_memory_popup(root: Control) -> void:
 	_topic_memory_popup = PanelContainer.new()
 	_topic_memory_popup.name = "TopicMemoryPopup"
-	_topic_memory_popup.position = Vector2(236, 72)
-	_topic_memory_popup.size = Vector2(390, 140)
+	_topic_memory_popup.position = Vector2(236, 52)
+	_topic_memory_popup.size = Vector2(390, 160)
 	_topic_memory_popup.add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("#211b35f7"), Color("#df915e"), 2),
@@ -576,7 +899,7 @@ func _build_topic_memory_popup(root: Control) -> void:
 	_topic_memory_actions.add_theme_constant_override("h_separation", 5)
 	_topic_memory_actions.add_theme_constant_override("v_separation", 3)
 	content.add_child(_topic_memory_actions)
-	for index: int in range(6):
+	for index: int in range(7):
 		var action := Button.new()
 		action.name = "TopicAction%d" % index
 		action.custom_minimum_size = Vector2(180, 22)
@@ -643,9 +966,18 @@ func _render_topic_memory_popup() -> void:
 		"回复简洁",
 		"回复自然",
 		"忘记这个主题",
+		"讨论街区发现",
 	]
+	var landmark_profile := _landmark_profile_for_npc(npc_id)
+	var discovery_available := (
+		not landmark_profile.is_empty()
+		and bool(
+			_discovered_landmarks.get(StringName(landmark_profile["landmark_id"]), false)
+		)
+	)
 	for index: int in range(_topic_memory_buttons.size()):
 		_topic_memory_buttons[index].text = labels[index]
+		_topic_memory_buttons[index].visible = index < 6 or discovery_available
 
 
 func _on_topic_memory_action(index: int) -> void:
@@ -702,6 +1034,19 @@ func _on_topic_memory_action(index: int) -> void:
 					"confirmation": "让 %s 忘记你保存的“%s”主题？" % [display_name, topic],
 				}
 			)
+		6:
+			var landmark_profile := _landmark_profile_for_npc(npc_id)
+			if (
+				landmark_profile.is_empty()
+				or not bool(
+					_discovered_landmarks.get(
+						StringName(landmark_profile["landmark_id"]),
+						false,
+					)
+				)
+			):
+				return
+			_fill_guided_draft(String(landmark_profile["discussion_draft"]))
 
 
 func _fill_guided_draft(draft: String) -> void:
@@ -786,7 +1131,7 @@ func _panel_style(background: Color, border: Color, border_width: int) -> StyleB
 func _open_dialogue(npc_id: StringName) -> bool:
 	if npc_id not in APPROVED_NPC_IDS:
 		return false
-	if _dialogue_client.is_request_in_flight():
+	if _observation_open or _dialogue_client.is_request_in_flight():
 		return false
 	var target: TownNpcActor = null
 	for npc: TownNpcActor in _npcs:

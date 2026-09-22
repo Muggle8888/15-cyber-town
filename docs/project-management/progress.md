@@ -4,7 +4,9 @@
 
 ## 当前结论
 
-F-011 `NPC 回访体验强化` 的实现与三层验收均已完成：用户通过 640×360 实机视觉门禁和 Fake 模式试玩；本地统一质量为 2138 passed、969 skipped、0 failed；`deepseek-flash` 真实 UAT 为 6 次调用、6 项检查、USD 0.001039、未决 0。功能提交 `5b42c529` 已推送到 `feat/f-011-npc-return-visit`，PR [#16](https://github.com/Muggle8888/15-cyber-town/pull/16) 首次 HEAD Quality run [`35708257630`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35708257630) 已通过。F-011 归档已在同一 PR 准备；它只在归档提交的新一轮最终 CI 通过且 PR 合并到 `main` 后生效。当前没有获批的下一任务。
+F-012 的视觉、三地标实现、Fake 回环、用户试玩和真实模型 UAT 均已通过。用户明确回复“试玩通过，已关闭”，未报告功能或手感问题。新增专用脱敏 runner 与 8 次/50,000 micro-USD 双硬门禁后，统一质量再次通过：Ruff、strict mypy（139 个源码文件）、Schema、Godot、9 个连接场景、10 个对话场景、多 NPC/城镇回环、pytest 2145 passed/969 skipped/0 failed、前后敏感信息门禁均成功。`deepseek-flash` UAT 完成 6 项检查，实际 8 次调用（含 2 次语义补测），累计 2539 输入 token、960 输出 token、1917 micro-USD，未决调用 0。执行后 `8000/18010` 均空闲；隔离 UAT 数据与账本保留。当前状态为 `READY_FOR_GIT_DELIVERY`；Git 提交/推送/PR/合并、外部素材和资源删除仍未授权。
+
+F-011 `NPC 回访体验强化` 的实现与三层验收均已完成：用户通过 640×360 实机视觉门禁和 Fake 模式试玩；本地统一质量为 2138 passed、969 skipped、0 failed；`deepseek-flash` 真实 UAT 为 6 次调用、6 项检查、USD 0.001039、未决 0。PR [#16](https://github.com/Muggle8888/15-cyber-town/pull/16) 的最终 HEAD Quality run [`35709192531`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35709192531) 通过，随后 squash merge 为 `2bf190d5a7656bbfb2c2ae8415c67860b60cd5c5`；合并后 `main` Quality run [`35709407498`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35709407498) 成功，F-011 归档正式生效。
 
 用户已批准 `F-010 Cyber Town 基础可玩版本` 的概念视觉，并于 2026-09-22 通过首个 `640 × 360` Godot 实机画面 `godot-normal-v2.png`。城镇现已成为产品入口，包含一街一广场、玩家四向移动、碰撞、有限摄像机、三名固定 NPC、最近目标提示、健康状态、底部中文对话、按 NPC 恢复的会话与六回合记录、关系阶段、失败/重试/降级反馈、基础声音和静音开关。
 
