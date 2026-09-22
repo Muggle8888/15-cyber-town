@@ -1501,3 +1501,12 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 控制台和文档只记录状态、调用数、检查数、补测数、token、费用与时间；未记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
 - 执行后 `8000` 与 `18010` 仍为空闲。保留资源为 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-012`（2 个文件、266,240 bytes）和 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-012.sqlite3`（24,576 bytes），均非 reparse point；Codex 未删除或提交这些受忽略资源。
 - F-012 当前为 `READY_FOR_GIT_DELIVERY`。Git 提交、推送、PR、合并与资源处置仍未授权，任务在 Git 交付和合并后证据完成前不标记为已归档。
+
+## 2026-09-22 F-012 首次 PR CI 与待生效归档
+
+- 用户明确授权 F-012 的精确审查与暂存、commit、push、创建 PR、等待 CI、通过后合并并完成归档。授权不包含强推、分支删除、tag、发布或任何资源删除。
+- 交付前 fetch 后确认 `origin/main` 仍为 `2bf190d5a7656bbfb2c2ae8415c67860b60cd5c5`，与功能分支基线 0/0 分歧；远端为 `https://github.com/Muggle8888/15-cyber-town.git`。精确暂存 16 个文件，staged diff check、0 finding 敏感信息扫描和运行时资源排除门禁通过；F-012 UAT 数据与账本未进入索引。
+- 功能提交为 `d10be318b22fb14e2f43a379ae76f0e11d8963c8`。分支 `feat/f-012-contextual-exploration` 已推送，PR [#17](https://github.com/Muggle8888/15-cyber-town/pull/17) 以 `main` 为 base 创建。
+- 首次 HEAD `d10be31` 的 Quality run [`35720207231`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35720207231) 于 1 分 46 秒内完成并通过，PR 状态可合并。
+- 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-012-contextual-exploration.md` 和 `F-012-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #17 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
+- 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
