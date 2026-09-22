@@ -278,6 +278,7 @@ def _run_town_godot(godot: Path, port: int = TOWN_PORT) -> None:
             f"--base-url=http://{HOST}:{port}",
             "--skip-health-check",
             "--event-save-path=res://.godot/f013-event-state-fake.json",
+            "--aftermath-save-path=res://.godot/f014-aftermath-state-fake.json",
         ],
         cwd=PROJECT_ROOT,
         check=True,
@@ -295,15 +296,32 @@ def _town_demo_executable(godot: Path) -> Path:
     return godot
 
 
-def _run_town_demo_godot(godot: Path, port: int = TOWN_PORT) -> None:
+def _run_town_demo_godot(
+    godot: Path,
+    port: int = TOWN_PORT,
+    *,
+    aftermath_demo: bool = False,
+) -> None:
+    command = [
+        str(_town_demo_executable(godot)),
+        "--path",
+        str(PROJECT_ROOT / "game"),
+        "--",
+        f"--base-url=http://{HOST}:{port}",
+    ]
+    if aftermath_demo:
+        event_save = PROJECT_ROOT / "game" / ".godot" / "f014-user-uat-f013-v1.json"
+        aftermath_save = PROJECT_ROOT / "game" / ".godot" / "f014-user-uat-v1.json"
+        command.extend(
+            [
+                "--event-save-path=res://.godot/f014-user-uat-f013-v1.json",
+                "--aftermath-save-path=res://.godot/f014-user-uat-v1.json",
+            ]
+        )
+        if not event_save.exists() or not aftermath_save.exists():
+            command.append("--prepare-aftermath-demo")
     subprocess.run(
-        [
-            str(_town_demo_executable(godot)),
-            "--path",
-            str(PROJECT_ROOT / "game"),
-            "--",
-            f"--base-url=http://{HOST}:{port}",
-        ],
+        command,
         cwd=PROJECT_ROOT,
         check=True,
     )
@@ -376,7 +394,18 @@ def run(godot: Path) -> None:
     # Exercise the product town scene through the same fake-only HTTP boundary.
     town_outcomes = multi_npc_outcomes + tuple(
         _completion(f"{display_name} advances the synthetic twilight signal event.")
-        for display_name in ("Nia", "Ivo", "Rhea", "Nia")
+        for display_name in (
+            "Nia",
+            "Ivo",
+            "Rhea",
+            "Nia",
+            "Nia",
+            "Rhea",
+            "Ivo",
+            "Ivo",
+            "Nia",
+            "Rhea",
+        )
     )
     town_npc_order = (
         "neon_guide",
@@ -386,12 +415,18 @@ def run(godot: Path) -> None:
         "signal_archivist",
         "night_courier",
         "neon_guide",
+        "neon_guide",
+        "night_courier",
+        "signal_archivist",
+        "signal_archivist",
+        "neon_guide",
+        "night_courier",
     )
     with _fake_application(town_outcomes) as (application, provider):
         with _fixture_server(application, TOWN_PORT):
             _run_town_godot(godot, TOWN_PORT)
-        if provider.call_count != 7:
-            raise RuntimeError("town loopback expected exactly seven fake provider calls")
+        if provider.call_count != 13:
+            raise RuntimeError("town loopback expected exactly thirteen fake provider calls")
         if any(
             not request.system_prompt.startswith(personas[npc_id].system_prompt)
             for request, npc_id in zip(provider.requests, town_npc_order, strict=True)
@@ -413,13 +448,27 @@ def run_town_only(godot: Path) -> None:
         raise RuntimeError(f"refusing to replace existing listener on {HOST}:{TOWN_PORT}")
     outcomes = tuple(
         _completion(f"{display_name} returns an isolated synthetic reply.")
-        for display_name in ("Nia", "Ivo", "Rhea", "Nia", "Ivo", "Rhea", "Nia")
+        for display_name in (
+            "Nia",
+            "Ivo",
+            "Rhea",
+            "Nia",
+            "Ivo",
+            "Rhea",
+            "Nia",
+            "Nia",
+            "Rhea",
+            "Ivo",
+            "Ivo",
+            "Nia",
+            "Rhea",
+        )
     )
     with _fake_application(outcomes) as (application, provider):
         with _fixture_server(application, TOWN_PORT):
             _run_town_godot(godot, TOWN_PORT)
-        if provider.call_count != 7:
-            raise RuntimeError("town loopback expected exactly seven fake provider calls")
+        if provider.call_count != 13:
+            raise RuntimeError("town loopback expected exactly thirteen fake provider calls")
         personas = load_bundled_personas()
         npc_order = (
             "neon_guide",
@@ -429,6 +478,12 @@ def run_town_only(godot: Path) -> None:
             "signal_archivist",
             "night_courier",
             "neon_guide",
+            "neon_guide",
+            "night_courier",
+            "signal_archivist",
+            "signal_archivist",
+            "neon_guide",
+            "night_courier",
         )
         if any(
             not request.system_prompt.startswith(personas[npc_id].system_prompt)
@@ -440,7 +495,7 @@ def run_town_only(godot: Path) -> None:
     print("Local fake FastAPI-Godot town integration passed (Nia, Ivo, Rhea)")
 
 
-def run_town_demo(godot: Path) -> None:
+def run_town_demo(godot: Path, *, aftermath_demo: bool = False) -> None:
     if not godot.is_file():
         raise FileNotFoundError(f"Godot executable not found: {godot}")
     if _port_is_open(TOWN_PORT):
@@ -453,7 +508,7 @@ def run_town_demo(godot: Path) -> None:
         _fake_application(outcomes) as (application, _provider),
         _fixture_server(application, TOWN_PORT),
     ):
-        _run_town_demo_godot(godot, TOWN_PORT)
+        _run_town_demo_godot(godot, TOWN_PORT, aftermath_demo=aftermath_demo)
     if _port_is_open(TOWN_PORT):
         raise RuntimeError("town demo left its loopback listener running")
     print("Fake-only playable town closed cleanly")
@@ -464,6 +519,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--godot", required=True, type=Path)
     parser.add_argument("--town-only", action="store_true")
     parser.add_argument("--town-demo", action="store_true")
+    parser.add_argument("--aftermath-demo", action="store_true")
     return parser.parse_args()
 
 
@@ -471,7 +527,10 @@ def main() -> int:
     arguments = _parse_args()
     try:
         if arguments.town_demo:
-            run_town_demo(arguments.godot.resolve())
+            run_town_demo(
+                arguments.godot.resolve(),
+                aftermath_demo=arguments.aftermath_demo,
+            )
         elif arguments.town_only:
             run_town_only(arguments.godot.resolve())
         else:

@@ -2,6 +2,7 @@ extends SceneTree
 
 const TOWN_SCENE_PATH := "res://scenes/town.tscn"
 const EVENT_TEST_SAVE_PATH := "res://.godot/f013-event-state-test.json"
+const AFTERMATH_TEST_SAVE_PATH := "res://.godot/f014-aftermath-state-test.json"
 const EXPECTED_IDS := [&"neon_guide", &"signal_archivist", &"night_courier"]
 const EXPECTED_LANDMARK_IDS := [
 	&"twilight_guide_board",
@@ -18,7 +19,12 @@ func _initialize() -> void:
 
 func _run() -> void:
 	ProjectSettings.set_setting("cyber_town/testing/event_save_path", EVENT_TEST_SAVE_PATH)
+	ProjectSettings.set_setting(
+		"cyber_town/testing/aftermath_save_path",
+		AFTERMATH_TEST_SAVE_PATH,
+	)
 	_test_event_state_persistence()
+	_test_aftermath_state_persistence()
 	_assert_equal(
 		ProjectSettings.get_setting("application/run/main_scene"),
 		TOWN_SCENE_PATH,
@@ -251,25 +257,54 @@ func _run() -> void:
 		&"completed",
 		"event completion persists across a fresh town scene",
 	)
+	_assert_equal(
+		restarted_town.aftermath_stage_for_testing(),
+		&"completed",
+		"aftermath completion persists across a fresh town scene",
+	)
+	_assert_equal(
+		restarted_town.aftermath_outcome_for_testing(),
+		&"archive_monitor",
+		"selected aftermath outcome persists across a fresh town scene",
+	)
+	var restarted_visual := restarted_town.aftermath_visual_for_testing()
+	_assert_equal(restarted_visual.get("label"), "档案监听", "persisted outcome restores signal sign")
 	var replay_toggle := restarted_town.find_child("EventTrackerToggle", true, false) as Button
 	var reset_panel := restarted_town.find_child("EventResetConfirmation", true, false) as Panel
 	var reset_cancel := restarted_town.find_child("EventResetCancelButton", true, false) as Button
 	var reset_confirm := restarted_town.find_child("EventResetConfirmButton", true, false) as Button
+	var replay_prelude := restarted_town.find_child("EventReplayPreludeButton", true, false) as Button
 	_assert_true(
-		replay_toggle != null and reset_panel != null and reset_cancel != null and reset_confirm != null,
-		"completed event exposes reset confirmation controls",
+		replay_toggle != null
+		and reset_panel != null
+		and reset_cancel != null
+		and reset_confirm != null
+		and replay_prelude != null,
+		"completed aftermath exposes independent replay controls",
 	)
-	if replay_toggle != null and reset_panel != null and reset_cancel != null and reset_confirm != null:
+	if (
+		replay_toggle != null
+		and reset_panel != null
+		and reset_cancel != null
+		and reset_confirm != null
+		and replay_prelude != null
+	):
 		replay_toggle.pressed.emit()
-		_assert_true(reset_panel.visible, "replay action opens a second confirmation")
+		_assert_true(reset_panel.visible, "aftermath replay opens a second confirmation")
 		reset_cancel.pressed.emit()
-		_assert_false(reset_panel.visible, "event reset can be cancelled")
+		_assert_false(reset_panel.visible, "aftermath replay can be cancelled")
 		replay_toggle.pressed.emit()
-		reset_confirm.pressed.emit()
+		_assert_true(replay_prelude.visible, "completed aftermath offers prelude replay")
+		replay_prelude.pressed.emit()
 		_assert_equal(
 			restarted_town.event_stage_for_testing(),
 			&"nia_intro",
-			"confirmed replay resets only the event progression",
+			"prelude replay resets F-013",
+		)
+		_assert_equal(
+			restarted_town.aftermath_stage_for_testing(),
+			&"completed",
+			"prelude replay preserves F-014 progression",
 		)
 	restarted_town.queue_free()
 	await process_frame
@@ -314,6 +349,99 @@ func _test_event_state_persistence() -> void:
 		"recorded event clue survives controller recreation",
 	)
 	_assert_true(restored.reset_event(), "event state can be reset deterministically")
+
+
+func _test_aftermath_state_persistence() -> void:
+	var invalid_file := FileAccess.open(AFTERMATH_TEST_SAVE_PATH, FileAccess.WRITE)
+	_assert_true(invalid_file != null, "aftermath test save is writable")
+	if invalid_file != null:
+		invalid_file.store_string("{invalid-json")
+		invalid_file.close()
+	var recovered := TwilightSignalAftermathState.new(AFTERMATH_TEST_SAVE_PATH)
+	var warning: String = recovered.load_or_initialize(false)
+	_assert_true(not warning.is_empty(), "invalid aftermath save produces a non-blocking warning")
+	_assert_equal(recovered.stage, &"locked", "aftermath remains locked before F-013 completion")
+	_assert_false(recovered.unlock_if_ready(false), "unfinished prerequisite cannot unlock aftermath")
+	_assert_true(recovered.unlock_if_ready(true), "completed prerequisite unlocks aftermath once")
+	_assert_false(recovered.unlock_if_ready(true), "aftermath unlock is idempotent")
+	_assert_false(
+		recovered.record_dialogue(&"signal_archivist", &"consultation", "completed"),
+		"Ivo cannot replace the required Nia briefing",
+	)
+	_assert_false(
+		recovered.record_dialogue(&"neon_guide", &"consultation", "degraded"),
+		"degraded briefing cannot advance aftermath",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"neon_guide", &"consultation", "completed"),
+		"Nia briefing starts consultation",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"night_courier", &"consultation", "completed"),
+		"Rhea consultation can precede Ivo",
+	)
+	_assert_false(
+		recovered.choose_outcome(&"archive_monitor"),
+		"outcome stays locked until all three opinions are recorded",
+	)
+	_assert_false(
+		recovered.record_dialogue(&"night_courier", &"consultation", "completed"),
+		"duplicate consultation does not count twice",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"signal_archivist", &"consultation", "completed"),
+		"Ivo consultation makes the decision available",
+	)
+	_assert_equal(recovered.stage, &"decision_ready", "three opinions unlock deterministic choice")
+	_assert_true(recovered.choose_outcome(&"archive_monitor"), "approved outcome can be selected")
+	_assert_equal(recovered.outcome_display_name(), "档案监听", "selected outcome has authored label")
+	_assert_false(
+		recovered.record_dialogue(&"neon_guide", &"consultation", "completed"),
+		"old consultation response cannot advance the reaction phase",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"night_courier", &"reaction", "completed"),
+		"Rhea reaction can be recorded first",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"neon_guide", &"reaction", "completed"),
+		"Nia reaction can be recorded second",
+	)
+	_assert_true(
+		recovered.record_dialogue(&"signal_archivist", &"reaction", "completed"),
+		"Ivo reaction completes aftermath",
+	)
+	_assert_true(recovered.is_completed(), "three independent reactions complete aftermath")
+	var restored := TwilightSignalAftermathState.new(AFTERMATH_TEST_SAVE_PATH)
+	_assert_equal(restored.load_or_initialize(true), "", "valid aftermath save reloads cleanly")
+	_assert_equal(restored.stage, &"completed", "aftermath stage survives controller recreation")
+	_assert_equal(restored.selected_outcome, &"archive_monitor", "outcome survives controller recreation")
+	_assert_true(
+		&"night_courier" in restored.reacted_npcs,
+		"reaction set survives controller recreation",
+	)
+	_assert_true(restored.reset_event(true), "aftermath reset succeeds independently")
+	_assert_equal(restored.stage, &"nia_briefing", "aftermath reset preserves completed prerequisite")
+	_assert_true(restored.selected_outcome.is_empty(), "aftermath reset clears only its outcome")
+	_assert_true(restored.reset_event(false), "aftermath can return to locked state for test isolation")
+
+	var expected_outcomes := {
+		&"night_market_guide": "夜市导引",
+		&"archive_monitor": "档案监听",
+		&"rain_route_beacon": "雨夜信标",
+	}
+	for outcome_id: StringName in expected_outcomes:
+		var state := TwilightSignalAftermathState.new()
+		state.load_or_initialize(true)
+		state.record_dialogue(&"neon_guide", &"consultation", "completed")
+		state.record_dialogue(&"signal_archivist", &"consultation", "completed")
+		state.record_dialogue(&"night_courier", &"consultation", "completed")
+		_assert_true(state.choose_outcome(outcome_id), "outcome is reachable: %s" % outcome_id)
+		_assert_equal(
+			state.outcome_display_name(),
+			expected_outcomes[outcome_id],
+			"outcome owns the expected player-visible label",
+		)
 
 
 func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
@@ -448,6 +576,7 @@ func _test_dialogue_loop(town: TownScene, player: TownPlayerController) -> void:
 	town.close_dialogue_for_testing()
 	_test_guided_memory_action(town, dialogue, bodies)
 	_test_twilight_signal_event(town, dialogue, bodies)
+	_test_twilight_signal_aftermath(town, dialogue, bodies)
 
 
 func _test_guided_memory_action(town: TownScene, dialogue: Node, bodies: Array[String]) -> void:
@@ -582,15 +711,97 @@ func _test_twilight_signal_event(town: TownScene, dialogue: Node, bodies: Array[
 
 	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_conclusion", "completed")
 	_assert_equal(town.event_stage_for_testing(), &"completed", "final Nia reply completes the event")
+	_assert_equal(
+		town.aftermath_stage_for_testing(),
+		&"nia_briefing",
+		"F-013 completion unlocks F-014 exactly once",
+	)
+	var event_progress := town.find_child("EventProgress", true, false) as Label
+	var event_title := town.find_child("EventTitle", true, false) as Label
+	var event_objective := town.find_child("EventObjective", true, false) as Label
+	_assert_true(
+		event_progress != null and event_progress.text == "街区事件 · 1/7",
+		"completed prelude transitions to aftermath progress",
+	)
+	_assert_true(
+		event_title != null and event_title.text == "暮光信号余波",
+		"completed prelude transitions to the aftermath tracker",
+	)
+	_assert_true(
+		event_objective != null and event_objective.text.contains("Nia"),
+		"aftermath tracker points to Nia briefing",
+	)
+
+
+func _test_twilight_signal_aftermath(
+	town: TownScene,
+	dialogue: Node,
+	bodies: Array[String],
+) -> void:
+	_assert_equal(town.aftermath_stage_for_testing(), &"nia_briefing", "aftermath starts at Nia")
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_briefing", "degraded")
+	_assert_equal(town.aftermath_stage_for_testing(), &"nia_briefing", "degraded briefing does not advance")
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"nia_briefing", "completed")
+	_assert_equal(town.aftermath_stage_for_testing(), &"consulting", "Nia briefing opens consultation")
+
+	_complete_event_dialogue(town, dialogue, bodies, &"night_courier", &"consulting", "completed")
+	_assert_equal(town.aftermath_stage_for_testing(), &"consulting", "Rhea can be consulted before Ivo")
+	_complete_event_dialogue(town, dialogue, bodies, &"signal_archivist", &"consulting", "timeout")
+	_assert_equal(
+		town.aftermath_stage_for_testing(),
+		&"decision_ready",
+		"three opinions unlock the deterministic decision",
+	)
+
+	var body_count := bodies.size()
+	_assert_true(town._open_aftermath_choice(), "decision-ready signal station opens choice panel")
+	var choice_panel := town.find_child("AftermathChoicePanel", true, false) as Panel
+	var archive_choice := town.find_child("AftermathChoice1", true, false) as Button
+	var choice_confirmation := town.find_child("AftermathChoiceConfirmation", true, false) as Panel
+	var choice_confirm := town.find_child("AftermathChoiceConfirm", true, false) as Button
+	_assert_true(
+		choice_panel != null
+		and archive_choice != null
+		and choice_confirmation != null
+		and choice_confirm != null,
+		"aftermath choice and confirmation controls exist",
+	)
+	if (
+		choice_panel != null
+		and archive_choice != null
+		and choice_confirmation != null
+		and choice_confirm != null
+	):
+		_assert_true(choice_panel.visible, "choice panel is visible at the signal station")
+		archive_choice.pressed.emit()
+		_assert_true(choice_confirmation.visible, "outcome requires a second confirmation")
+		_assert_equal(bodies.size(), body_count, "opening and selecting an outcome performs no request")
+		choice_confirm.pressed.emit()
+		_assert_equal(bodies.size(), body_count, "confirming an outcome performs no Provider request")
+	_assert_equal(town.aftermath_stage_for_testing(), &"aftermath", "confirmed choice starts reactions")
+	_assert_equal(town.aftermath_outcome_for_testing(), &"archive_monitor", "choice is saved deterministically")
+	var visual := town.aftermath_visual_for_testing()
+	_assert_equal(visual.get("label"), "档案监听", "selected outcome updates the station sign")
+	_assert_true(
+		String(visual.get("accent", "")).begins_with("9a8cff"),
+		"selected outcome applies the archive accent",
+	)
+
+	_complete_event_dialogue(town, dialogue, bodies, &"signal_archivist", &"aftermath", "completed")
+	_assert_equal(town.aftermath_stage_for_testing(), &"aftermath", "one reaction does not complete aftermath")
+	_complete_event_dialogue(town, dialogue, bodies, &"neon_guide", &"aftermath", "completed")
+	_assert_equal(town.aftermath_stage_for_testing(), &"aftermath", "two reactions do not complete aftermath")
+	_complete_event_dialogue(town, dialogue, bodies, &"night_courier", &"aftermath", "completed")
+	_assert_equal(town.aftermath_stage_for_testing(), &"completed", "three reactions complete aftermath")
 	var event_progress := town.find_child("EventProgress", true, false) as Label
 	var event_objective := town.find_child("EventObjective", true, false) as Label
 	_assert_true(
 		event_progress != null and event_progress.text == "街区事件 · 7/7",
-		"completed event renders final progress",
+		"completed aftermath renders final progress",
 	)
 	_assert_true(
-		event_objective != null and event_objective.text.contains("归档"),
-		"completed event renders a deterministic conclusion",
+		event_objective != null and event_objective.text.contains("档案监听"),
+		"completed aftermath renders the selected outcome summary",
 	)
 
 
@@ -602,7 +813,12 @@ func _complete_event_dialogue(
 	expected_stage: StringName,
 	mode: String,
 ) -> void:
-	_assert_equal(town.event_stage_for_testing(), expected_stage, "event helper starts at expected stage")
+	var active_stage := (
+		town.aftermath_stage_for_testing()
+		if town.event_stage_for_testing() == &"completed"
+		else town.event_stage_for_testing()
+	)
+	_assert_equal(active_stage, expected_stage, "event helper starts at expected stage")
 	_assert_true(town.open_dialogue_for_testing(npc_id), "event target NPC opens: %s" % npc_id)
 	var topic_button := town.find_child("TopicMemoryButton", true, false) as Button
 	var event_button := town.find_child("TopicAction7", true, false) as Button

@@ -1511,6 +1511,39 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-012-contextual-exploration.md` 和 `F-012-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #17 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
 - 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
 
+## 2026-09-22 F-014 视觉通过、实现与离线质量
+
+- 用户明确通过三方案选择画面的位置、大小、文字和信息层级，Step 0 视觉门禁完成；Step 1—4 的既有本地实现、截图和离线/Fake 验证授权开始生效。真实模型调用和 Git 交付仍未授权。
+- 新增独立 `TwilightSignalAftermathState` 与小型 `TownEventCoordinator`。F-014 固定六个状态、三个结局和严格版本化存档；未知版本、非法枚举、重复 NPC 或字段组合错误只恢复 F-014。F-013 未完成时保持锁定，重温 F-013 不删除 F-014。
+- 城镇接入 Nia 开场、Ivo/Rhea 任意顺序咨询、信号台三方案二次确认、三种灯光与标牌，以及三名 NPC 任意顺序回访。草稿始终对玩家可见可编辑；网络继续只发送 Dialogue v1 五字段，选择本身零 Provider 调用、零长期记忆写入和零直接关系变更。
+- `game/tests/run_town_tests.gd` 输出 `TOWN_TESTS=PASS`，覆盖严格存档、前置锁定、解锁幂等、降级阻断、任意咨询/回访顺序、重复 NPC 阻断、三种结局、跨控制器恢复、F-013/F-014 独立重温、场景视觉恢复和选择零请求。
+- 独立 `127.0.0.1:18010` Fake FastAPI—Godot 回环输出 `GODOT_TOWN_FAKE=PASS`，三名 NPC 启动期会话、F-013 前篇与 F-014 余波完整执行，共 13 次 Provider 调用；确定性选择未增加调用，执行后端口释放。
+- 统一质量入口执行前确认 `8000` 与 `18010` 空闲，并一次通过：Ruff、strict mypy（142 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与完整城镇回环、pytest `2155 passed, 969 skipped, 0 failed`、前后 ignore policy 与敏感信息门禁。skip 均为既有历史诊断根或 F-009 原生环境门禁。
+- 最终结局截图 `godot-aftermath-outcome-v1.png` 由 Godot 4.7.2 实际渲染，640×360、67,166 bytes、SHA256 `04F246C7C1CEA9AD7A82A3EBDAC226FE477CFCBF00DECC13453EB24FFFD09BD5`，展示蓝紫“档案监听”信号台与 4/7 回访目标。
+- 自动与 Fake 证据不能替代玩家对选择、跨重启恢复、三人反应、场景可读性和独立重温的试玩确认；此时尚未读取 `.env`、调用真实 Provider、提交、推送或修改远端。
+
+## 2026-09-22 F-014 人工试玩结束与跳过项
+
+- 使用 `127.0.0.1:18010` Fake Provider 启动独立 F-014 演示，隔离存档为 `game/.godot/f014-user-uat-f013-v1.json` 与 `game/.godot/f014-user-uat-v1.json`。前置 F-013 状态确定性准备为完成，不修改正常游戏存档。
+- 用户关闭演示并明确要求跳过“选择恢复、三人回访、事件完成和重温余波”验证。关闭后的隔离 F-014 存档仍为 `nia_briefing`，没有已记录咨询、选择或回访，因此不将任何跳过项目记为人工通过。
+- 窗口关闭后，本轮 Godot GUI 与父级 Fake runner 仍残留并占用 `18010`。路径、命令行和父子关系确认均属于本轮演示后，只在原 PTY 中中断；随后 Godot/Fake/Python 进程均退出且 `18010` 释放。中断时的 Godot 静态字符串与 RID 清理告警属于强制退出输出，不改变此前自动质量结论。
+- 这是试玩窗口关闭后进程残留的再次出现。触发点为 Windows Godot 演示进程没有随窗口关闭结束；后续规则是把“窗口关闭”“进程退出”“端口释放”作为三个独立检查，并考虑在 `scripts/dialogue_integration.py` 增加受控退出握手，不再仅依赖 GUI 进程自然结束。
+- 当前状态为 `PENDING_REAL_PROVIDER_UAT`。真实模型与 Git 交付未授权，人工跳过项保留为未验证，不用自动/Fake 结果冒充。
+
+## 2026-09-22 F-014 真实模型与后续 Git 交付授权
+
+- 用户明确要求执行真实模型 UAT，并在其通过后进入 Git 交付。授权范围为计划 6 次、最多 2 次语义补测、硬上限 8 次、SDK 自动重试 0、费用硬上限 USD 0.05；Git 交付仅在 UAT 通过后生效，包含精确审查与暂存、commit、push、PR、CI、合并和归档，不包含强推、分支删除、tag、发布或资源删除。
+- 调用前官方价格重新核验：`deepseek-flash` 当前对应 DeepSeek-V4.1-Flash；峰值缓存未命中输入 USD 0.30/M token、输出 USD 1.20/M token，产品明确价格可能调整。现有 10,138 micro-USD 单次保守预留和 50,000 micro-USD 批次门禁继续使用峰值价格。
+- F-014 隔离资源已预登记为 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-014` 与 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-014.sqlite3`；执行前均不存在。前者只保存隔离业务/控制状态，后者只保存调用状态、token、费用和时间戳；两者受 Git ignore，任务后保留并由用户决定处置。
+
+## 2026-09-22 F-013 最终交付与 F-014 Step 0 启动
+
+- PR #18 最终 HEAD `0de08da` 的 Quality run [`35733137930`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35733137930) 通过；PR 随后 squash merge 为 `193d97c1cb4844eb6e1f74efbe42f34368acc06f`。
+- 合并后 `main` Quality run [`35733396788`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35733396788) 通过，本地 `main` 与 `origin/main` 同步且工作区干净，F-013 归档正式生效。
+- 用户批准 `F-014 暮光信号余波` 任务方案并要求实施。功能分支 `feat/f-014-twilight-signal-aftermath` 从 `main@193d97c1` 创建；当前只执行 Step 0 视觉门禁。
+- Step 0 受版本控制资源为 `docs/design/twilight-signal-aftermath/design-spec.md` 与 `godot-aftermath-choice-v1.png`，只包含作者文案和 Godot 渲染画面，不含密钥、玩家对话、模型回复或数据库。用户通过截图前不进入 Step 1—4。
+- 选择画面由 Godot 4.7.2 实际渲染，尺寸 640×360、89,269 bytes、SHA256 `AB030C9A75FE17BC229F053173E03B3D95CBD3F9C5DDC279A507F2BE85119F10`。截图展示 `街区事件 · 4/7`、三个等价方案和明确的可重温提示；Godot import 与城镇定向测试 `TOWN_TESTS=PASS`。
+
 ## 2026-09-22 F-013 批准与 Step 0 资源登记
 
 - 用户明确要求实施已确认的 `F-013 暮光失联信号` 计划，授权建立任务卡与本地功能分支，以及 Step 0—4 的本地代码、Godot 截图和离线/Fake 验证。真实模型调用、`.env` 读取、commit、push、PR、合并、外部素材与资源删除未获授权。
@@ -1572,3 +1605,12 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 首次 HEAD `b7fe341` 的 Quality run [`35732218406`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35732218406) 于 1 分 53 秒内完成并通过，PR 状态可合并。
 - 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-013-twilight-lost-signal.md` 和 `F-013-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #18 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
 - 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
+
+## 2026-09-22 F-014 最终离线质量与真实模型 UAT
+
+- 新增 F-014 专用验收步骤、8 次调用与 50,000 micro-USD 双硬门禁、脱敏 runner 和 Fake 测试。定向测试为 59 passed；离线预检输出 `F014_REAL_UAT_OFFLINE_PREFLIGHT=PASS`，凭据预检输出 `F014_REAL_UAT_CREDENTIAL_PREFLIGHT=PASS`。两次预检均未创建隔离资源，也未显示或记录凭据。
+- 最终统一质量入口 `uv run --frozen python scripts/quality.py` 一次通过：Ruff、strict mypy（144 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、多 NPC 与完整 F-013/F-014 城镇回环、pytest `2163 passed, 969 skipped, 0 failed`、前后 ignore policy 与敏感信息检查全部成功。
+- 调用前按 DeepSeek 官方价格页核验 `deepseek-flash` 对应 DeepSeek-V4.1-Flash；高峰缓存未命中输入 USD 0.30/M token、输出 USD 1.20/M token，官方提示价格可能调整。环境存在 SOCKS `ALL_PROXY`，因此只在唯一 UAT 子进程移除该变量并保留 HTTP/HTTPS 代理；未修改系统环境、项目配置或依赖。
+- 唯一真实 Provider 批次输出 `F014_REAL_UAT=PASS`：6 次调用完成 6 项检查，0 次语义补测，累计 1807 输入 token、807 输出 token、1513 micro-USD（USD 0.001513），未决调用 0。检查覆盖 Nia 开场、Ivo/Rhea 三方咨询，以及三名 NPC 对同一“雨夜信标”结局的 Persona、关系语气和跨 NPC 隔离。
+- runner 在付费派发前断言玩家可见文本、NPC、Persona 和关系阶段归属，长期事实、隐藏历史和回复风格均为空；控制台、账本与文档不记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
+- 执行后保留 `data/uat/f-014`（2 个文件、266,240 bytes）与 `data/acceptance-ledgers/f-014.sqlite3`（24,576 bytes），两者均非 reparse point且受 Git ignore；Codex 未删除资源。用户主动跳过的选择恢复、三人回访、完成和重温人工检查仍未验证。当前状态为 `READY_FOR_GIT_DELIVERY`。

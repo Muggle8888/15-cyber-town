@@ -114,7 +114,12 @@ func _run() -> void:
 	_town.close_dialogue_for_testing()
 	if not await _run_twilight_signal_event():
 		return
-	print("GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3 event=completed")
+	if not await _run_twilight_signal_aftermath():
+		return
+	print(
+		"GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3 "
+		+ "events=twilight_lost_signal,twilight_signal_aftermath outcomes=archive_monitor"
+	)
 	_town.queue_free()
 	await process_frame
 	quit(0)
@@ -122,6 +127,7 @@ func _run() -> void:
 
 func _run_twilight_signal_event() -> bool:
 	_town.reset_event_for_testing()
+	_town.reset_aftermath_for_testing()
 	if not await _send_event_step(&"neon_guide", &"guide_clue"):
 		return false
 	if not _record_event_clue(&"twilight_guide_board", &"ivo_analysis"):
@@ -134,7 +140,45 @@ func _run_twilight_signal_event() -> bool:
 		return false
 	if not _record_event_clue(&"rain_delivery_board", &"nia_conclusion"):
 		return false
-	if not await _send_event_step(&"neon_guide", &"completed"):
+	if not await _send_event_step(&"neon_guide", &"nia_briefing"):
+		return false
+	if _town.event_stage_for_testing() != &"completed":
+		_fail("F-013 final dialogue did not persist completion")
+		return false
+	return true
+
+
+func _run_twilight_signal_aftermath() -> bool:
+	if _town.aftermath_stage_for_testing() != &"nia_briefing":
+		_fail("F-013 completion did not unlock F-014")
+		return false
+	if not await _send_event_step(&"neon_guide", &"consulting"):
+		return false
+	if not await _send_event_step(&"night_courier", &"consulting"):
+		return false
+	if not await _send_event_step(&"signal_archivist", &"decision_ready"):
+		return false
+	if not _town._open_aftermath_choice():
+		_fail("aftermath choice panel did not open at decision_ready")
+		return false
+	var archive_choice := _town.find_child("AftermathChoice1", true, false) as Button
+	var choice_confirm := _town.find_child("AftermathChoiceConfirm", true, false) as Button
+	if archive_choice == null or choice_confirm == null:
+		_fail("aftermath choice controls were not available")
+		return false
+	archive_choice.pressed.emit()
+	choice_confirm.pressed.emit()
+	if (
+		_town.aftermath_stage_for_testing() != &"aftermath"
+		or _town.aftermath_outcome_for_testing() != &"archive_monitor"
+	):
+		_fail("deterministic aftermath choice was not persisted")
+		return false
+	if not await _send_event_step(&"signal_archivist", &"aftermath"):
+		return false
+	if not await _send_event_step(&"neon_guide", &"aftermath"):
+		return false
+	if not await _send_event_step(&"night_courier", &"completed"):
 		return false
 	return true
 
@@ -162,11 +206,17 @@ func _send_event_step(npc_id: StringName, expected_next_stage: StringName) -> bo
 	if not await _wait_for_dialogue_state(&"success"):
 		return false
 	await _wait_for_relationship_snapshot()
-	if _town.event_stage_for_testing() != expected_next_stage:
+	if _active_event_stage() != expected_next_stage:
 		_fail("completed event request did not advance to %s" % expected_next_stage)
 		return false
 	_town.close_dialogue_for_testing()
 	return true
+
+
+func _active_event_stage() -> StringName:
+	if _town.event_stage_for_testing() == &"completed":
+		return _town.aftermath_stage_for_testing()
+	return _town.event_stage_for_testing()
 
 
 func _record_event_clue(landmark_id: StringName, expected_next_stage: StringName) -> bool:
