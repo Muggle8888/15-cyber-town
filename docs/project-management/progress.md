@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-F-014 `暮光信号余波` 已获用户批准并从 `main@193d97c1` 建立功能分支 `feat/f-014-twilight-signal-aftermath`。用户已通过 640×360 三方案选择画面的视觉门禁；独立状态机、严格存档、F-013 前置协调、三方咨询、确定性选择、三种场景余波、三人任意顺序回访和独立重温均已实现。城镇定向测试、13 次 Fake Provider 城镇回环和统一质量通过；最终统一质量为 pytest `2163 passed, 969 skipped, 0 failed`，并包含 Ruff、strict mypy、Schema、Godot 与敏感信息门禁。真实 `deepseek-flash` UAT 以 6 次调用完成 6 项检查，0 次语义补测，累计 1807 输入 token、807 输出 token、1513 micro-USD、未决 0。用户已关闭 Fake 演示并明确跳过选择恢复、三人回访、完成和重温验证；隔离存档停留在 `nia_briefing`，这些人工项仍未计为通过。当前状态为 `READY_FOR_GIT_DELIVERY`。
+F-014 `暮光信号余波` 的视觉、本地实现、自动/Fake、统一质量和真实模型 UAT 均已通过。真实 `deepseek-flash` UAT 以 6 次调用完成 6 项检查，0 次语义补测，累计 1807 输入 token、807 输出 token、1513 micro-USD、未决 0；最终统一质量为 pytest `2163 passed, 969 skipped, 0 failed`。用户已关闭 Fake 演示并明确跳过选择恢复、三人回访、完成和重温验证，这些人工项仍未计为通过。功能提交 `82a25c7` 已推送，PR [#19](https://github.com/Muggle8888/15-cyber-town/pull/19) 首次 Quality run [`35749693510`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35749693510) 通过；归档已在同一 PR 准备，等待最终 HEAD CI 与合并。
 
 F-013 `暮光失联信号` 的视觉、实现、三层验收和统一质量均已通过。PR [#18](https://github.com/Muggle8888/15-cyber-town/pull/18) 最终 HEAD Quality run [`35733137930`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35733137930) 通过，随后 squash merge 为 `193d97c1cb4844eb6e1f74efbe42f34368acc06f`；合并后 `main` Quality run [`35733396788`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35733396788) 再次通过，归档正式生效。
 

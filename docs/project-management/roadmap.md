@@ -11,6 +11,6 @@
 | 5 | F-011 NPC 回访体验强化 | 已完成（PR #16 合并生效） | 实现与三层验收均通过；归档已在同一 PR 准备，最终 HEAD CI 与合并事实以 GitHub 为准 |
 | 6 | F-012 街区探索与情境对话 | 已完成（PR #17 合并后生效） | 三层验收与首次 PR HEAD CI 均通过；归档提交进入同一 PR，最终 CI 与合并后在 `main` 生效 |
 | 7 | F-013 暮光失联信号 | 已完成（PR #18 合并后生效） | 三层验收与首次 PR HEAD CI 已通过；归档提交进入同一 PR，最终 CI 与合并后在 `main` 生效 |
-| 8 | F-014 暮光信号余波 | 交付中 | 本地实现、Fake 回环、统一质量和真实模型 UAT 通过；用户跳过的剩余人工试玩项保持未验证，正在执行 Git 交付 |
+| 8 | F-014 暮光信号余波 | 已完成（PR #19 合并后生效） | 实现、Fake、统一质量、真实模型 UAT 与首次 PR HEAD CI 通过；人工跳过项保持未验证，归档提交等待最终 CI 与合并 |
 
-F-009—F-013 均已完成。F-013 经 PR #18 最终 HEAD Quality run `35733137930` 通过后 squash merge 为 `193d97c1cb4844eb6e1f74efbe42f34368acc06f`，合并后 `main` Quality run `35733396788` 通过，归档正式生效。F-014 的视觉门禁、本地实现、自动/Fake 验证、统一质量和真实模型 UAT 已通过；用户已结束演示并跳过剩余人工检查，这些项目仍明确未验证。当前状态为 Git 交付中。本文件只表达任务级顺序。当前状态见 [current-task.md](current-task.md)，历史归档见 [task-cards](../archive/task-cards/)。
+F-009—F-013 均已完成。F-013 经 PR #18 最终 HEAD Quality run `35733137930` 通过后 squash merge 为 `193d97c1cb4844eb6e1f74efbe42f34368acc06f`，合并后 `main` Quality run `35733396788` 通过，归档正式生效。F-014 功能提交 `82a25c7` 已推送到 PR #19，首次 HEAD Quality run `35749693510` 通过；归档已在同一 PR 准备，需等待最终 HEAD CI 与合并后在 `main` 生效。用户主动跳过的人工检查仍明确未验证。本文件只表达任务级顺序。当前状态见 [current-task.md](current-task.md)，历史归档见 [task-cards](../archive/task-cards/)。

@@ -1614,3 +1614,12 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 唯一真实 Provider 批次输出 `F014_REAL_UAT=PASS`：6 次调用完成 6 项检查，0 次语义补测，累计 1807 输入 token、807 输出 token、1513 micro-USD（USD 0.001513），未决调用 0。检查覆盖 Nia 开场、Ivo/Rhea 三方咨询，以及三名 NPC 对同一“雨夜信标”结局的 Persona、关系语气和跨 NPC 隔离。
 - runner 在付费派发前断言玩家可见文本、NPC、Persona 和关系阶段归属，长期事实、隐藏历史和回复风格均为空；控制台、账本与文档不记录原始玩家文本、完整模型回复、Provider body、完整 system prompt、密钥或 reasoning。
 - 执行后保留 `data/uat/f-014`（2 个文件、266,240 bytes）与 `data/acceptance-ledgers/f-014.sqlite3`（24,576 bytes），两者均非 reparse point且受 Git ignore；Codex 未删除资源。用户主动跳过的选择恢复、三人回访、完成和重温人工检查仍未验证。当前状态为 `READY_FOR_GIT_DELIVERY`。
+
+## 2026-09-22 F-014 首次 PR CI 与待生效归档
+
+- 交付前刷新确认 `origin/main` 仍为 `193d97c1cb4844eb6e1f74efbe42f34368acc06f`，与功能分支基线 0/0 分歧；远端为 `https://github.com/Muggle8888/15-cyber-town.git`，当前 GitHub 凭据对该仓库具有管理员权限。
+- 精确暂存 22 个 F-014 文件，staged diff check、0 finding 敏感信息扫描与 61 项质量策略专项测试通过；没有未暂存或未跟踪文件。F-014 UAT 数据、账本与 Godot 合成存档均受 ignore 保护且未进入索引。
+- 功能提交为 `82a25c7a739241ec5730024dd066c30ee57fcb0d`。分支 `feat/f-014-twilight-signal-aftermath` 已推送，PR [#19](https://github.com/Muggle8888/15-cyber-town/pull/19) 以 `main` 为 base 创建。
+- 首次 HEAD `82a25c7` 的 Quality run [`35749693510`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35749693510) 于约 1 分 29 秒内完成并通过，PR 状态可合并。
+- 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-014-twilight-signal-aftermath.md` 和 `F-014-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #19 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
+- 归档提交会改变 PR HEAD；必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
