@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Literal, Protocol
 
 from cyber_town.domain.long_term_memory import validate_long_term_fact
@@ -11,6 +12,71 @@ from cyber_town.domain.long_term_memory import validate_long_term_fact
 MAX_PROVIDER_PROMPT_TOKENS = 32_768
 MAX_PROVIDER_COMPLETION_TOKENS = 256
 MAX_PROVIDER_TOTAL_TOKENS = 33_024
+RELATIONSHIP_STYLE_CONTEXT_VERSION = "f-011-relationship-style-v1"
+
+
+class ProviderRelationshipStage(StrEnum):
+    """Validated relationship context allowed to cross the provider boundary."""
+
+    NEWCOMER = "newcomer"
+    ACQUAINTANCE = "acquaintance"
+    FRIEND = "friend"
+    TRUSTED_ALLY = "trusted_ally"
+
+
+class ProviderReplyStyle(StrEnum):
+    """Validated persistent reply preference allowed to shape ordinary replies."""
+
+    CONCISE = "concise"
+    BALANCED = "balanced"
+
+
+_RELATIONSHIP_BEHAVIOR = {
+    ProviderRelationshipStage.NEWCOMER: (
+        "Be polite and reserved. Do not imply shared experiences or unusual familiarity."
+    ),
+    ProviderRelationshipStage.ACQUAINTANCE: (
+        "Be naturally friendly while keeping an appropriate interpersonal distance."
+    ),
+    ProviderRelationshipStage.FRIEND: (
+        "You may use a more familiar form of address and a supportive tone."
+    ),
+    ProviderRelationshipStage.TRUSTED_ALLY: (
+        "Show established trust, but never claim tools, permissions, "
+        "or knowledge of live game state."
+    ),
+}
+_REPLY_STYLE_BEHAVIOR = {
+    ProviderReplyStyle.CONCISE: "Usually answer in one or two sentences.",
+    ProviderReplyStyle.BALANCED: (
+        "Use the Persona's normal rhythm of one to three short paragraphs."
+    ),
+}
+
+
+def controlled_system_prompt(
+    base_prompt: str,
+    relationship_stage: ProviderRelationshipStage | None,
+    reply_style: ProviderReplyStyle | None,
+) -> str:
+    """Append versioned, enum-only behavior controls below Persona and safety authority."""
+
+    if relationship_stage is None and reply_style is None:
+        return base_prompt
+    controls = [
+        f"CONTROLLED_CONTEXT_VERSION: {RELATIONSHIP_STYLE_CONTEXT_VERSION}",
+        (
+            "The following values are trusted application enums. They adjust tone only. "
+            "The Persona and safety rules above remain authoritative."
+        ),
+    ]
+    if relationship_stage is not None:
+        controls.append(f"RELATIONSHIP_STAGE: {relationship_stage.value}")
+        controls.append(_RELATIONSHIP_BEHAVIOR[relationship_stage])
+    if reply_style is not None:
+        controls.append(f"REPLY_STYLE: {reply_style.value}")
+        controls.append(_REPLY_STYLE_BEHAVIOR[reply_style])
+    return base_prompt + "\n\n" + "\n".join(controls)
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,8 +157,16 @@ class ProviderRequest:
     stream: bool = False
     history_messages: tuple[ProviderHistoryMessage, ...] = ()
     long_term_facts: tuple[ProviderLongTermFact, ...] = ()
+    relationship_stage: ProviderRelationshipStage | None = None
+    reply_style: ProviderReplyStyle | None = None
 
     def __post_init__(self) -> None:
+        if self.relationship_stage is not None and not isinstance(
+            self.relationship_stage, ProviderRelationshipStage
+        ):
+            raise TypeError("Relationship stage must use the approved provider enum")
+        if self.reply_style is not None and not isinstance(self.reply_style, ProviderReplyStyle):
+            raise TypeError("Reply style must use the approved provider enum")
         if not isinstance(self.long_term_facts, tuple):
             raise TypeError("Long-term facts must be an immutable tuple")
         if len(self.long_term_facts) > 4:
@@ -116,6 +190,15 @@ class ProviderRequest:
             expected_role = "user" if index % 2 == 0 else "assistant"
             if message.role != expected_role:
                 raise ValueError("Historical messages must alternate user and assistant")
+
+    def system_content(self) -> str:
+        """Return Persona-first system content with validated F-011 controls appended."""
+
+        return controlled_system_prompt(
+            self.system_prompt,
+            self.relationship_stage,
+            self.reply_style,
+        )
 
 
 @dataclass(frozen=True, slots=True)

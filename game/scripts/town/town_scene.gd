@@ -14,6 +14,23 @@ const RELATIONSHIP_CLIENT_SCRIPT := preload("res://scripts/dialogue/relationship
 const UI_FONT := preload("res://assets/third_party/noto_sans_cjk_sc_complete/NotoSansCJKsc-Regular.otf")
 const INTERACTION_SOUND := preload("res://assets/third_party/kenney_rpg_audio/Audio/bookOpen.ogg")
 const BUTTON_SOUND := preload("res://assets/third_party/kenney_rpg_audio/Audio/metalClick.ogg")
+const NPC_TOPIC_PROFILES := {
+	&"neon_guide": {
+		"display_name": "Nia",
+		"topic": "霓虹夜市",
+		"draft": "今晚的霓虹夜市有什么值得看的？",
+	},
+	&"signal_archivist": {
+		"display_name": "Ivo",
+		"topic": "小镇故事",
+		"draft": "信号档案里有什么小镇故事？",
+	},
+	&"night_courier": {
+		"display_name": "Rhea",
+		"topic": "雨夜街道",
+		"draft": "雨夜街道会影响投递吗？",
+	},
+}
 
 @onready var _ground: Node2D = $Ground
 @onready var _world: Node2D = $World
@@ -35,6 +52,16 @@ var _retry_button: Button
 var _close_button: Button
 var _health_retry_button: Button
 var _mute_button: Button
+var _topic_memory_button: Button
+var _topic_memory_popup: PanelContainer
+var _topic_memory_title: Label
+var _topic_memory_buttons: Array[Button] = []
+var _topic_memory_actions: GridContainer
+var _topic_memory_confirmation: VBoxContainer
+var _topic_memory_confirmation_label: Label
+var _topic_memory_confirm_button: Button
+var _topic_memory_cancel_button: Button
+var _pending_guided_action: Dictionary = {}
 var _health_client: Node
 var _dialogue_client: Node
 var _relationship_client: Node
@@ -66,6 +93,8 @@ func _ready() -> void:
 	if not _capture_path.is_empty():
 		_set_health_state(&"connected")
 		_open_dialogue(&"neon_guide")
+		if _has_user_argument("--capture-topic-menu"):
+			_set_topic_memory_popup_visible(true)
 		_capture_after_render.call_deferred()
 	elif _has_user_argument("--skip-health-check"):
 		_set_health_state(&"unavailable")
@@ -142,6 +171,10 @@ func dialogue_client_for_testing() -> Node:
 
 func relationship_client_for_testing() -> Node:
 	return _relationship_client
+
+
+func topic_profile_for_testing(npc_id: StringName) -> Dictionary:
+	return (NPC_TOPIC_PROFILES.get(npc_id, {}) as Dictionary).duplicate(true)
 
 
 func set_backend_available_for_testing(value: bool) -> void:
@@ -479,6 +512,240 @@ func _build_ui() -> void:
 	_dialogue_status_label.add_theme_color_override("font_color", Color("#8f99aa"))
 	content.add_child(_dialogue_status_label)
 
+	_topic_memory_button = Button.new()
+	_topic_memory_button.name = "TopicMemoryButton"
+	_topic_memory_button.text = "话题与记忆"
+	_topic_memory_button.tooltip_text = "打开当前 NPC 的引导话题和记忆动作"
+	_topic_memory_button.add_theme_font_size_override("font_size", 9)
+	_topic_memory_button.pressed.connect(_toggle_topic_memory_popup)
+	input_row.add_child(_topic_memory_button)
+
+	_build_topic_memory_popup(root)
+
+
+func _build_topic_memory_popup(root: Control) -> void:
+	_topic_memory_popup = PanelContainer.new()
+	_topic_memory_popup.name = "TopicMemoryPopup"
+	_topic_memory_popup.position = Vector2(236, 72)
+	_topic_memory_popup.size = Vector2(390, 140)
+	_topic_memory_popup.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("#211b35f7"), Color("#df915e"), 2),
+	)
+	_topic_memory_popup.visible = false
+	root.add_child(_topic_memory_popup)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_topic_memory_popup.add_child(margin)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 4)
+	margin.add_child(content)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 6)
+	content.add_child(header)
+	_topic_memory_title = Label.new()
+	_topic_memory_title.name = "TopicMemoryTitle"
+	_topic_memory_title.text = "Nia · 话题与记忆"
+	_topic_memory_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_topic_memory_title.add_theme_font_size_override("font_size", 13)
+	_topic_memory_title.add_theme_color_override("font_color", Color("#ffca7a"))
+	header.add_child(_topic_memory_title)
+	var collapse := Button.new()
+	collapse.name = "TopicMemoryCollapseButton"
+	collapse.text = "收起"
+	collapse.add_theme_font_size_override("font_size", 9)
+	collapse.pressed.connect(_toggle_topic_memory_popup)
+	header.add_child(collapse)
+
+	var hint := Label.new()
+	hint.name = "TopicMemoryHint"
+	hint.text = "选择引导动作 · 状态写入前会再次确认"
+	hint.add_theme_font_size_override("font_size", 9)
+	hint.add_theme_color_override("font_color", Color("#aeb8c9"))
+	content.add_child(hint)
+
+	_topic_memory_actions = GridContainer.new()
+	_topic_memory_actions.name = "TopicMemoryActions"
+	_topic_memory_actions.columns = 2
+	_topic_memory_actions.add_theme_constant_override("h_separation", 5)
+	_topic_memory_actions.add_theme_constant_override("v_separation", 3)
+	content.add_child(_topic_memory_actions)
+	for index: int in range(6):
+		var action := Button.new()
+		action.name = "TopicAction%d" % index
+		action.custom_minimum_size = Vector2(180, 22)
+		action.add_theme_font_size_override("font_size", 9)
+		action.focus_mode = Control.FOCUS_NONE
+		action.pressed.connect(_on_topic_memory_action.bind(index))
+		_topic_memory_actions.add_child(action)
+		_topic_memory_buttons.append(action)
+
+	_topic_memory_confirmation = VBoxContainer.new()
+	_topic_memory_confirmation.name = "TopicMemoryConfirmation"
+	_topic_memory_confirmation.add_theme_constant_override("separation", 6)
+	_topic_memory_confirmation.visible = false
+	content.add_child(_topic_memory_confirmation)
+	_topic_memory_confirmation_label = Label.new()
+	_topic_memory_confirmation_label.name = "TopicMemoryConfirmationText"
+	_topic_memory_confirmation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_topic_memory_confirmation_label.add_theme_font_size_override("font_size", 10)
+	_topic_memory_confirmation_label.add_theme_color_override("font_color", Color("#eee6dc"))
+	_topic_memory_confirmation.add_child(_topic_memory_confirmation_label)
+	var confirmation_actions := HBoxContainer.new()
+	confirmation_actions.alignment = BoxContainer.ALIGNMENT_END
+	confirmation_actions.add_theme_constant_override("separation", 6)
+	_topic_memory_confirmation.add_child(confirmation_actions)
+	_topic_memory_cancel_button = Button.new()
+	_topic_memory_cancel_button.name = "TopicMemoryCancelButton"
+	_topic_memory_cancel_button.text = "取消"
+	_topic_memory_cancel_button.pressed.connect(_cancel_guided_action)
+	confirmation_actions.add_child(_topic_memory_cancel_button)
+	_topic_memory_confirm_button = Button.new()
+	_topic_memory_confirm_button.name = "TopicMemoryConfirmButton"
+	_topic_memory_confirm_button.text = "确认发送"
+	_topic_memory_confirm_button.pressed.connect(_confirm_guided_action)
+	confirmation_actions.add_child(_topic_memory_confirm_button)
+
+
+func _toggle_topic_memory_popup() -> void:
+	_set_topic_memory_popup_visible(not _topic_memory_popup.visible)
+	_play_ui_sound()
+
+
+func _set_topic_memory_popup_visible(value: bool) -> void:
+	if not _dialogue_open:
+		value = false
+	_topic_memory_popup.visible = value
+	if value:
+		_cancel_guided_action(false)
+		_render_topic_memory_popup()
+
+
+func _render_topic_memory_popup() -> void:
+	var npc_id := StringName(_dialogue_client.active_npc_id())
+	var profile: Dictionary = NPC_TOPIC_PROFILES.get(npc_id, {})
+	if profile.is_empty():
+		_set_topic_memory_popup_visible(false)
+		return
+	var display_name := String(profile["display_name"])
+	var topic := String(profile["topic"])
+	_topic_memory_title.text = "%s · 话题与记忆" % display_name
+	var labels := [
+		"聊聊 · %s" % topic,
+		"记住 · %s" % topic,
+		"问问是否记得",
+		"回复简洁",
+		"回复自然",
+		"忘记这个主题",
+	]
+	for index: int in range(_topic_memory_buttons.size()):
+		_topic_memory_buttons[index].text = labels[index]
+
+
+func _on_topic_memory_action(index: int) -> void:
+	if _dialogue_client.is_request_in_flight():
+		return
+	var npc_id := StringName(_dialogue_client.active_npc_id())
+	var profile: Dictionary = NPC_TOPIC_PROFILES.get(npc_id, {})
+	if profile.is_empty():
+		return
+	var display_name := String(profile["display_name"])
+	var topic := String(profile["topic"])
+	match index:
+		0:
+			_fill_guided_draft(String(profile["draft"]))
+		2:
+			_fill_guided_draft("你还记得我喜欢的%s吗？" % topic)
+		1:
+			_show_guided_confirmation(
+				{
+					"kind": "remember_topic",
+					"raw": "请记住：favorite_cyber_town_topic=%s" % topic,
+					"display": "请记住我喜欢%s" % topic,
+					"success": "%s 已记下你喜欢“%s”。" % [display_name, topic],
+					"confirmation": "让 %s 记住：你喜欢“%s”？" % [display_name, topic],
+				}
+			)
+		3:
+			_show_guided_confirmation(
+				{
+					"kind": "reply_style",
+					"raw": "请记住：reply_style=concise",
+					"display": "请用简洁方式回复我",
+					"success": "%s 已将回复方式设为简洁。" % display_name,
+					"confirmation": "将 %s 的后续回复设为一至两句？" % display_name,
+				}
+			)
+		4:
+			_show_guided_confirmation(
+				{
+					"kind": "reply_style",
+					"raw": "请记住：reply_style=balanced",
+					"display": "请用自然方式回复我",
+					"success": "%s 已将回复方式设为自然。" % display_name,
+					"confirmation": "将 %s 的后续回复恢复为自然节奏？" % display_name,
+				}
+			)
+		5:
+			_show_guided_confirmation(
+				{
+					"kind": "forget_topic",
+					"raw": "请忘记：favorite_cyber_town_topic",
+					"display": "请忘记我喜欢的%s" % topic,
+					"success": "%s 已忘记你保存的“%s”主题。" % [display_name, topic],
+					"confirmation": "让 %s 忘记你保存的“%s”主题？" % [display_name, topic],
+				}
+			)
+
+
+func _fill_guided_draft(draft: String) -> void:
+	_message_input.text = draft
+	_message_input.caret_column = draft.length()
+	_on_message_changed(draft)
+	_set_topic_memory_popup_visible(false)
+	_message_input.grab_focus()
+
+
+func _show_guided_confirmation(action: Dictionary) -> void:
+	_pending_guided_action = action.duplicate(true)
+	_topic_memory_actions.visible = false
+	_topic_memory_confirmation.visible = true
+	_topic_memory_confirmation_label.text = String(action["confirmation"])
+
+
+func _cancel_guided_action(play_sound := true) -> void:
+	_pending_guided_action = {}
+	if is_instance_valid(_topic_memory_actions):
+		_topic_memory_actions.visible = true
+	if is_instance_valid(_topic_memory_confirmation):
+		_topic_memory_confirmation.visible = false
+	if play_sound:
+		_play_ui_sound()
+
+
+func _confirm_guided_action() -> void:
+	if (
+		_pending_guided_action.is_empty()
+		or not _backend_available
+		or _dialogue_client.is_request_in_flight()
+	):
+		return
+	if _dialogue_client.begin_send(
+		String(_pending_guided_action["raw"]),
+		String(_pending_guided_action["display"]),
+		String(_pending_guided_action["kind"]),
+		String(_pending_guided_action["success"]),
+	):
+		_play_ui_sound()
+		_message_input.text = ""
+		_update_dialogue_controls()
+
 
 func _create_theme() -> Theme:
 	var theme := Theme.new()
@@ -534,6 +801,7 @@ func _open_dialogue(npc_id: StringName) -> bool:
 		return false
 	_dialogue_open = true
 	_dialogue_panel.visible = true
+	_set_topic_memory_popup_visible(false)
 	_prompt_label.visible = false
 	_player.set_movement_locked(true)
 	_dialogue_name.text = target.display_name
@@ -541,6 +809,7 @@ func _open_dialogue(npc_id: StringName) -> bool:
 	_play_interaction_sound()
 	_message_input.placeholder_text = "输入想对%s说的话…" % target.display_name
 	_message_input.text = ""
+	_cancel_guided_action(false)
 	_render_history()
 	_render_relationship()
 	_on_dialogue_state_changed(_dialogue_client.state)
@@ -558,11 +827,37 @@ func _close_dialogue() -> void:
 		return
 	_dialogue_open = false
 	_dialogue_panel.visible = false
+	_set_topic_memory_popup_visible(false)
 	if is_instance_valid(_player):
 		_player.set_movement_locked(false)
 
 
 func _preview_line(npc_id: StringName) -> String:
+	if _relationship_client.has_verified_snapshot and _relationship_client.state == &"available":
+		var stage := String(_relationship_client.stage)
+		var relationship_lines := {
+			&"neon_guide": {
+				"newcomer": "晚上好，访客。沿着灯火走，就能找到广场。",
+				"acquaintance": "又见面了。今晚想从哪段灯火开始？",
+				"friend": "你来了。今晚也一起慢慢看看街区吧。",
+				"trusted_ally": "你来了，可信的伙伴。今晚也一起看看街区吧。",
+			},
+			&"signal_archivist": {
+				"newcomer": "档案亭还亮着。你想查找哪一段信号？",
+				"acquaintance": "又来查档案了？今晚想听哪一段记录？",
+				"friend": "你来得正好，我正想和你聊一段小镇记录。",
+				"trusted_ally": "可靠的伙伴，档案亭今晚也欢迎你。",
+			},
+			&"night_courier": {
+				"newcomer": "街尾的最后一封信刚刚抵达。",
+				"acquaintance": "又见面了。今晚的投递还算顺利。",
+				"friend": "你来了。陪我在街尾歇一会儿吧。",
+				"trusted_ally": "可信的伙伴，见到你让我安心。",
+			},
+		}
+		var npc_lines: Dictionary = relationship_lines.get(npc_id, {})
+		if npc_lines.has(stage):
+			return String(npc_lines[stage])
 	match npc_id:
 		&"signal_archivist":
 			return "档案亭还亮着。你想查找哪一段信号？"
@@ -641,6 +936,8 @@ func _on_dialogue_state_changed(next_state: StringName) -> void:
 				_dialogue_status_label.text = "临时回应，不会加入短期记忆"
 			else:
 				_dialogue_status_label.text = "回复已收到"
+			if not _pending_guided_action.is_empty():
+				_set_topic_memory_popup_visible(false)
 			_relationship_client.refresh(_dialogue_client.latest_request_id())
 		&"timeout":
 			_dialogue_status_label.text = "等待超时，请手动重试"
@@ -673,7 +970,12 @@ func _render_history() -> void:
 	for turn: Dictionary in turns:
 		lines.append("你：%s" % String(turn["message"]))
 		var suffix := "（临时回应）" if bool(turn["degraded"]) else ""
-		lines.append("%s：%s%s" % [_dialogue_name.text, String(turn["reply"]), suffix])
+		var speaker := (
+			"系统"
+			if String(turn.get("action_kind", "dialogue")) != "dialogue" and not bool(turn["degraded"])
+			else _dialogue_name.text
+		)
+		lines.append("%s：%s%s" % [speaker, String(turn["reply"]), suffix])
 	_history_label.text = "\n".join(lines)
 	_history_label.scroll_to_line(maxi(0, lines.size() - 1))
 
@@ -689,21 +991,34 @@ func _update_dialogue_controls() -> void:
 	_retry_button.visible = _dialogue_client.can_retry()
 	_retry_button.disabled = waiting or not _backend_available
 	_close_button.disabled = waiting
+	_topic_memory_button.disabled = waiting
+	for button: Button in _topic_memory_buttons:
+		button.disabled = waiting
+	_topic_memory_confirm_button.disabled = waiting or not _backend_available
+	_topic_memory_cancel_button.disabled = waiting
 
 
 func _on_relationship_snapshot_changed(_next_state: StringName) -> void:
 	if _dialogue_open:
 		_render_relationship()
+		if _dialogue_client.history().is_empty():
+			_render_history()
 
 
 func _render_relationship() -> void:
+	if _relationship_client.state == &"loading":
+		_relationship_label.text = "关系 · 获取中"
+		return
+	if _relationship_client.state == &"unavailable" or not _relationship_client.has_verified_snapshot:
+		_relationship_label.text = "关系 · 暂不可用" if _relationship_client.state == &"unavailable" else "关系 · 获取中"
+		return
 	var names := {
 		"newcomer": "初识",
 		"acquaintance": "相识",
 		"friend": "朋友",
 		"trusted_ally": "可信伙伴",
 	}
-	var stage_name: String = names.get(_relationship_client.stage, "初识")
+	var stage_name: String = names.get(_relationship_client.stage, "暂不可用")
 	var text := "关系 · %s" % stage_name
 	if _relationship_client.has_verified_snapshot and not _relationship_client.latest_event.is_empty():
 		var delta := int(_relationship_client.latest_event.get("applied_delta", 0))

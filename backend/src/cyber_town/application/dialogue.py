@@ -75,10 +75,13 @@ from cyber_town.application.provider import (
     ProviderInvalidResponseError,
     ProviderLongTermFact,
     ProviderProtocol,
+    ProviderRelationshipStage,
+    ProviderReplyStyle,
     ProviderRequest,
     ProviderTimeoutError,
     ProviderUnavailableError,
     ProviderUsage,
+    controlled_system_prompt,
 )
 from cyber_town.application.retry import (
     BreakerDecision,
@@ -967,6 +970,7 @@ class DialogueService:
                 )
 
             long_term_facts: tuple[ProviderLongTermFact, ...] = ()
+            reply_style: ProviderReplyStyle | None = None
             long_term_scope = LongTermMemoryScope(request.player_id, request.npc_id)
             long_term_revision = self._long_term_revisions.get(long_term_scope, 0)
             if self._long_term_retriever is not None:
@@ -999,20 +1003,62 @@ class DialogueService:
                         TraceStage.LONG_TERM_RETRIEVAL,
                         item_count=len(long_term_facts),
                     )
+                reply_style_reader = getattr(self._long_term_retriever, "reply_style", None)
+                if callable(reply_style_reader):
+                    try:
+                        raw_reply_style = await self._business_call(
+                            reply_style_reader,
+                            long_term_scope,
+                        )
+                    except LongTermMemoryStorageError:
+                        raise self._scope_unavailable(
+                            "The dialogue service is temporarily unavailable."
+                        ) from None
+                    reply_style = (
+                        raw_reply_style if isinstance(raw_reply_style, ProviderReplyStyle) else None
+                    )
             elif observation is not None:
                 await observation.astage(
                     TraceStage.LONG_TERM_RETRIEVAL,
                     StageOutcome.SKIPPED,
                     reason_code=TraceReasonCode.NOT_REACHED,
                 )
+            relationship_stage: ProviderRelationshipStage | None = None
+            if self._relationship_service is not None:
+                relationship_reader = getattr(self._relationship_service, "read", None)
+                if callable(relationship_reader):
+                    try:
+                        relationship_snapshot = await self._business_call(
+                            relationship_reader,
+                            player_id=request.player_id,
+                            npc_id=request.npc_id,
+                            request_id=None,
+                        )
+                    except RelationshipStorageError:
+                        relationship_snapshot = None
+                    if relationship_snapshot is not None:
+                        try:
+                            relationship_stage = ProviderRelationshipStage(
+                                relationship_snapshot.state.stage.value
+                            )
+                        except (AttributeError, TypeError, ValueError):
+                            relationship_stage = None
+            effective_system_prompt = controlled_system_prompt(
+                persona.system_prompt,
+                relationship_stage,
+                reply_style,
+            )
             selected_context = select_context_messages(
-                persona.system_prompt, request.message, history, long_term_facts
+                effective_system_prompt,
+                request.message,
+                history,
+                long_term_facts,
             )
             if observation is not None:
                 observation.selected_short_term_turns = len(selected_context.history_messages) // 2
                 observation.selected_long_term_facts = len(selected_context.long_term_facts)
                 observation.context_budget_units = estimate_context_units(
-                    persona.system_prompt,
+                    effective_system_prompt,
                     request.message,
                     selected_context.history_messages,
                     long_term_facts=selected_context.long_term_facts,
@@ -1066,6 +1112,8 @@ class DialogueService:
                     persona,
                     selected_context.history_messages,
                     selected_context.long_term_facts,
+                    relationship_stage=relationship_stage,
+                    reply_style=reply_style,
                     execution_id=execution_id,
                     observation=observation,
                 )
@@ -1199,6 +1247,8 @@ class DialogueService:
         history_messages: tuple[ProviderHistoryMessage, ...],
         long_term_facts: tuple[ProviderLongTermFact, ...],
         *,
+        relationship_stage: ProviderRelationshipStage | None,
+        reply_style: ProviderReplyStyle | None,
         execution_id: UUID,
         observation: DialogueTrace | None,
     ) -> _DialogueResult:
@@ -1298,6 +1348,8 @@ class DialogueService:
                         persona,
                         history_messages,
                         long_term_facts,
+                        relationship_stage=relationship_stage,
+                        reply_style=reply_style,
                         observation=observation,
                         budget_state=budget_state,
                         attempt_timeout_seconds=(
@@ -1525,6 +1577,8 @@ class DialogueService:
         history_messages: tuple[ProviderHistoryMessage, ...],
         long_term_facts: tuple[ProviderLongTermFact, ...],
         *,
+        relationship_stage: ProviderRelationshipStage | None,
+        reply_style: ProviderReplyStyle | None,
         observation: DialogueTrace | None,
         budget_state: _BudgetAttemptState | None,
         attempt_timeout_seconds: float,
@@ -1540,6 +1594,8 @@ class DialogueService:
             stream=False,
             history_messages=history_messages,
             long_term_facts=long_term_facts,
+            relationship_stage=relationship_stage,
+            reply_style=reply_style,
         )
         queue_started = self._clock()
         queue_started_utc = observation.wall_clock() if observation is not None else None
