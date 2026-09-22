@@ -37,7 +37,7 @@ def completion() -> ProviderCompletion:
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=18, completion_tokens=9),
     )
 
@@ -46,7 +46,7 @@ def request() -> ProviderRequest:
     return ProviderRequest(
         system_prompt="Synthetic persona.",
         user_message="Synthetic acceptance question.",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         temperature=0.6,
         max_tokens=256,
         timeout_seconds=12.0,
@@ -96,7 +96,7 @@ def test_unresolved_prior_call_blocks_provider_before_dispatch(ledger: Acceptanc
     ledger.reserve(
         authorization_id="prior-synthetic",
         step=AcceptanceStep.STEP_5,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         reserved_micro_usd=1,
     )
     provider = FakeProvider([completion()])

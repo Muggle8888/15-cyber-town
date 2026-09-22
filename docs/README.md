@@ -4,20 +4,29 @@
 
 - 项目规则：[`../AGENTS.md`](../AGENTS.md)
 - 产品与范围：[`product-brief.md`](product-brief.md)
+- 当前架构：[`architecture.md`](architecture.md)
+- Agent 边界：[`agent-design.md`](agent-design.md)
+- 记忆设计：[`memory-design.md`](memory-design.md)
+- 技术栈：[`tech-stack.md`](tech-stack.md)
+- 评估策略：[`evaluation-strategy.md`](evaluation-strategy.md)
+- 测试策略：[`testing-strategy.md`](testing-strategy.md)
+- 架构决策：[`decisions.md`](decisions.md)
 - 候选路线：[`project-management/roadmap.md`](project-management/roadmap.md)
 - 当前任务：[`project-management/current-task.md`](project-management/current-task.md)
 - 当前计划：[`project-management/implementation-plan.md`](project-management/implementation-plan.md)
-- F-009 验收契约：[`project-management/F-009-验收契约.md`](project-management/F-009-验收契约.md)
+- 基础可玩版本视觉基线候选：[`design/playable-town/visual-baseline.md`](design/playable-town/visual-baseline.md)
+- F-009 历史验收契约：[`project-management/F-009-验收契约.md`](project-management/F-009-验收契约.md)
 - 当前状态：[`project-management/progress.md`](project-management/progress.md)
 - 验收证据：[`project-management/evidence.md`](project-management/evidence.md)
+- F-009 本地资源处置：[`project-management/F-009-本地资源处置清单.md`](project-management/F-009-本地资源处置清单.md)
 
-当前阶段只从上面的任务入口读取；历史交付见 [`archive/task-cards/`](archive/task-cards/)。本 `docs/` 是唯一权威文档体系，不另建 `memory-bank/`。方法论接入和交接差异见 [`方法论同步说明`](project-management/方法论同步说明.md)。
+当前状态从 `current-task.md`、roadmap、progress 与 evidence 读取；F-009验收契约只保存已完成历史，不能提供新授权。历史交付见 [`archive/task-cards/`](archive/task-cards/)。本 `docs/` 是唯一权威文档体系，不另建 `memory-bank/`。方法论接入和交接差异见 [`方法论同步说明`](project-management/方法论同步说明.md)。
 
 ## 方法论与 worktree 接入
 
 - 通用规则来源：`E:\Vibe coding\vibe-methodology`，读取入口和专题路由由项目 `AGENTS.md` 指定；本文件不复制通用规则全文。
-- 正式文档：`E:\Agent\comprehensive-cases\15-cyber-town\docs`；F-009 代码：`E:\Agent\comprehensive-cases\15-cyber-town-f009`；既有 QA 证据：`E:\Agent\cyber-town-f009-step6-qa`。
-- 功能 worktree 的 `docs/` 是可能过期的检出副本，不用它覆盖正式任务状态；同步前核对未提交改动，不整目录复制。QA 与性能报告只证明各自记录的代码、工具及环境版本。
+- 正式文档：`E:\Agent\comprehensive-cases\15-cyber-town\docs`。截至 2026-09-21，F-009 功能 worktree 与两个仓库外证据根均已在文件系统中不存在；原因和删除时间无法由现有 Git 事实确认，Git 仍保留可修剪的旧 worktree 登记。准确状态见 [`F-009 本地资源处置清单`](project-management/F-009-本地资源处置清单.md)。
+- 不得用旧 worktree、历史聊天或已不存在证据根中的副本覆盖正式任务状态。Git 内归档只证明其记录的代码、工具和环境版本；仓库外原始 SQLite 与运行现场当前不可用。
 - 更新前列出事实的唯一位置；更新后检查入口、当前任务、Git 与篇幅。详细失败、指纹和资源台账只保留一份证据，其他文件引用；方法论同步不代表旧历史文件已完成压缩归档。
 
 ## 权威文档与更新规则

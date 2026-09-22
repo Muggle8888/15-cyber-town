@@ -18,6 +18,8 @@ from cyber_town.application.budget import (
     ATTEMPT_WINDOW_SPECS,
     BUDGET_POLICY_VERSION,
     COST_WINDOW_SPECS,
+    DEEPSEEK_FLASH_PEAK_PRICING_POLICY,
+    DEEPSEEK_FLASH_PRICING_VERSION,
     SYNTHETIC_PRICING_POLICY,
     BudgetEventKind,
     BudgetLimitClass,
@@ -194,8 +196,8 @@ def test_product_budget_projection_is_versioned_and_replaces_ledger_window_scan(
         migrations = connection.execute(
             "SELECT version,name FROM schema_migrations ORDER BY version"
         ).fetchall()
-        assert connection.execute("PRAGMA user_version").fetchone() == (9,)
-        assert migrations[-1] == (9, "0009_provider_permit_scope_storage.sql")
+        assert connection.execute("PRAGMA user_version").fetchone() == (10,)
+        assert migrations[-1] == (10, "0010_deepseek_flash_pricing_reservation.sql")
         assert {
             "budget_window_projection_state",
             "budget_window_totals",
@@ -505,6 +507,16 @@ async def test_execution_intent_restart_conservatively_settles_unknown_receipt_o
 def test_budget_and_pricing_contract_is_fixed_and_uses_ceiling() -> None:
     assert BUDGET_POLICY_VERSION == "f-009-budget-policy-v1"
     assert SYNTHETIC_PRICING_POLICY.version == "f-009-synthetic-pricing-v1"
+    assert DEEPSEEK_FLASH_PRICING_VERSION == "deepseek-v4.1-flash-2026-09-10-peak-v1"
+    assert DEEPSEEK_FLASH_PEAK_PRICING_POLICY.model == "deepseek-flash"
+    assert DEEPSEEK_FLASH_PEAK_PRICING_POLICY.max_reservation_micro_usd == 10_138
+    assert (
+        calculate_cost_micro_usd(
+            policy=DEEPSEEK_FLASH_PEAK_PRICING_POLICY,
+            usage=ProviderUsage(prompt_tokens=32_768, completion_tokens=256),
+        )
+        == 10_138
+    )
     assert (
         calculate_cost_micro_usd(
             policy=PricingPolicy(
@@ -1356,6 +1368,7 @@ def test_control_sqlite_0002_and_payload_sentinel(tmp_path: Path) -> None:
         (7, "0007_drop_redundant_budget_owner_npc_index.sql"),
         (8, "0008_budget_projection_integrity.sql"),
         (9, "0009_provider_permit_scope_storage.sql"),
+        (10, "0010_deepseek_flash_pricing_reservation.sql"),
     ]
     database_bytes = repository.database_path.read_bytes()
     for forbidden in (

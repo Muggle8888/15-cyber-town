@@ -266,7 +266,7 @@ def test_provider_request_rejects_mutable_duplicate_and_excess_long_term_facts()
     request = ProviderRequest(
         system_prompt="Synthetic persona.",
         user_message="What is my alias?",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         temperature=0.6,
         max_tokens=256,
         timeout_seconds=12.0,

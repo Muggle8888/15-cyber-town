@@ -44,6 +44,12 @@ var _request_sender := Callable()
 var _active_completion := Callable()
 var _npc_registry := NpcRegistry.new()
 var _active_npc_id := NpcRegistry.DEFAULT_NPC_ID
+var _snapshots: Dictionary = {}
+
+
+func _init() -> void:
+	_ensure_snapshot(_active_npc_id)
+	_restore_active_snapshot()
 
 
 func _ready() -> void:
@@ -67,20 +73,25 @@ func switch_npc(npc_id: String) -> bool:
 		return false
 	if npc_id == _active_npc_id:
 		return true
-	if _request_in_flight and is_instance_valid(_http_request):
-		_disconnect_active_completion()
-		_http_request.cancel_request()
+	if _request_in_flight:
+		if is_instance_valid(_http_request):
+			_disconnect_active_completion()
+			_http_request.cancel_request()
+		_request_in_flight = false
+	_save_active_snapshot()
 	_generation += 1
-	_request_in_flight = false
 	_pending_request_id = ""
 	_active_npc_id = npc_id
-	score = 20
-	stage = "acquaintance"
-	latest_event = {}
-	has_verified_snapshot = false
-	last_failure = ""
-	_set_state(IDLE)
+	_ensure_snapshot(npc_id)
+	_restore_active_snapshot()
+	snapshot_changed.emit(state)
 	return true
+
+
+func snapshot_for(npc_id: String) -> Dictionary:
+	if not _snapshots.has(npc_id):
+		return {}
+	return (_snapshots[npc_id] as Dictionary).duplicate(true)
 
 
 func refresh(request_id := "") -> bool:
@@ -223,7 +234,43 @@ func _is_integer_in_range(value: Variant, minimum: int, maximum: int) -> bool:
 
 func _set_state(next_state: StringName) -> void:
 	state = next_state
+	_save_active_snapshot()
 	snapshot_changed.emit(state)
+
+
+func _ensure_snapshot(npc_id: String) -> void:
+	if _snapshots.has(npc_id):
+		return
+	_snapshots[npc_id] = {
+		"state": IDLE,
+		"score": 20,
+		"stage": "acquaintance",
+		"latest_event": {},
+		"has_verified_snapshot": false,
+		"last_failure": "",
+	}
+
+
+func _save_active_snapshot() -> void:
+	_ensure_snapshot(_active_npc_id)
+	_snapshots[_active_npc_id] = {
+		"state": state,
+		"score": score,
+		"stage": stage,
+		"latest_event": latest_event.duplicate(true),
+		"has_verified_snapshot": has_verified_snapshot,
+		"last_failure": last_failure,
+	}
+
+
+func _restore_active_snapshot() -> void:
+	var snapshot: Dictionary = _snapshots[_active_npc_id]
+	state = StringName(snapshot["state"])
+	score = int(snapshot["score"])
+	stage = String(snapshot["stage"])
+	latest_event = (snapshot["latest_event"] as Dictionary).duplicate(true)
+	has_verified_snapshot = bool(snapshot["has_verified_snapshot"])
+	last_failure = String(snapshot["last_failure"])
 
 
 func _dispatch_pending_refresh() -> void:

@@ -3,7 +3,8 @@ extends SceneTree
 const STATE_SCRIPT_PATH := "res://scripts/backend_health_state.gd"
 const CLIENT_SCRIPT_PATH := "res://scripts/backend_health_client.gd"
 const UI_SCRIPT_PATH := "res://scripts/backend_status_ui.gd"
-const MAIN_SCENE_PATH := "res://scenes/backend_status.tscn"
+const PRODUCT_SCENE_PATH := "res://scenes/town.tscn"
+const DIAGNOSTIC_SCENE_PATH := "res://scenes/backend_status.tscn"
 const DialogueTestSuite = preload("res://tests/dialogue_test_suite.gd")
 
 const EXPECTED_HEALTH := {
@@ -38,7 +39,13 @@ func _run() -> void:
 
 
 func _test_required_resources_exist() -> void:
-	for path in [STATE_SCRIPT_PATH, CLIENT_SCRIPT_PATH, UI_SCRIPT_PATH, MAIN_SCENE_PATH]:
+	for path in [
+		STATE_SCRIPT_PATH,
+		CLIENT_SCRIPT_PATH,
+		UI_SCRIPT_PATH,
+		PRODUCT_SCENE_PATH,
+		DIAGNOSTIC_SCENE_PATH,
+	]:
 		_assert_true(ResourceLoader.exists(path), "required resource exists: %s" % path)
 
 
@@ -223,16 +230,16 @@ func _test_single_in_flight_and_retry_state(client_script: Script) -> void:
 func _test_main_scene_contract() -> void:
 	_assert_equal(
 		ProjectSettings.get_setting("application/run/main_scene"),
-		MAIN_SCENE_PATH,
-		"project uses the diagnostic scene as main scene",
+		PRODUCT_SCENE_PATH,
+		"project uses the town as its product main scene",
 	)
-	var packed_scene: PackedScene = load(MAIN_SCENE_PATH)
-	_assert_true(packed_scene != null, "main scene loads")
+	var packed_scene: PackedScene = load(DIAGNOSTIC_SCENE_PATH)
+	_assert_true(packed_scene != null, "diagnostic scene still loads")
 	if packed_scene == null:
 		return
 
 	var scene: Node = packed_scene.instantiate()
-	_assert_true(scene is Control, "main scene root is Control")
+	_assert_true(scene is Control, "diagnostic scene root is Control")
 	_assert_true(scene.has_node("CenterContainer/VBoxContainer/TitleLabel"), "title exists")
 	_assert_true(scene.has_node("CenterContainer/VBoxContainer/StatusLabel"), "status exists")
 	_assert_true(scene.has_node("CenterContainer/VBoxContainer/RetryButton"), "retry exists")

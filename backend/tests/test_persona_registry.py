@@ -52,7 +52,7 @@ def test_unknown_npc_id_fails_closed_before_provider_or_memory_use() -> None:
         personas=load_bundled_personas(),
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

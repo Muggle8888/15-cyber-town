@@ -1,10 +1,18 @@
 # 项目进度
 
-更新时间：2026-09-18
+更新时间：2026-09-22
 
 ## 当前结论
 
-F-009 Step 0—6、最终quality10、固定性能1+5及Step 7交付实现均已完成。归档包装提交 `265a544`、跨平台类型兼容提交 `aefa027`、通用CI与Windows专项验收边界提交 `4991f31` 已推送PR #13；HEAD `4991f317`的Quality run `35342268748`全绿。当前任务卡与实施计划已准备归档，最终归档HEAD仍须通过CI后才能合并。
+用户已批准 `F-010 Cyber Town 基础可玩版本` 的概念视觉，并于 2026-09-22 通过首个 `640 × 360` Godot 实机画面 `godot-normal-v2.png`。城镇现已成为产品入口，包含一街一广场、玩家四向移动、碰撞、有限摄像机、三名固定 NPC、最近目标提示、健康状态、底部中文对话、按 NPC 恢复的会话与六回合记录、关系阶段、失败/重试/降级反馈、基础声音和静音开关。
+
+当前分支为 `feat/playable-town`，基线为已推送的 F-009 文档收尾提交 `2666f54180f6f31c79de785f38a6ac64e58ea85b`。Godot 4.7.2 编辑器导入、F-010 城镇定向测试、既有 Godot 诊断/对话回归和独立端口 `18010` 的 fake FastAPI—Godot 城镇回环均通过。用户于 2026-09-22 实际试玩后确认“除 Fake 固定回复外，功能和手感试玩通过”；用户随后正常关闭试玩窗口。完整 Noto Sans CJK SC OFL 字体已接入；尚未提交或推送。
+
+当前执行状态为 `READY_FOR_GIT_DELIVERY`。DeepSeek 规范模型名、当前价格预算、v10 控制数据库迁移、隔离 UAT 脚本与追加式未知结果解决账本已接入；最终统一质量为 2115 passed、969 个既有条件 skip、0 failed。真实 UAT 在 9 次硬上限内完成：8 次取得官方 usage，1 次未知结果保留原记录并按最大预留保守计费；累计 2065 输入 token、307 输出 token，保守费用 11,130 微美元。9 项检查覆盖三名 NPC 身份、Nia 多轮上下文与跨服务长期事实召回、Ivo 跨 NPC 长期事实隔离和关系事件。Fake、用户试玩与真实模型三层验收均已通过，下一项为 Git 交付。
+
+视觉基线见 [`docs/design/playable-town/visual-baseline.md`](../design/playable-town/visual-baseline.md)，当前任务与后续步骤分别见 [current-task.md](current-task.md) 和 [implementation-plan.md](implementation-plan.md)。
+
+## F-009历史执行摘要
 
 两个finding已分别归类：`docs/archive/F-009-过程记录-20260905/evidence.md` 的HEAD blob为36,115,596 bytes，超过全局5 MiB文本上限，属于 `archive_packaging_policy_conflict`，且该大文件正文尚未被当前门禁验证；`manifest.json` 的 `sensitive_scan.findings.github_live_token` 值为空数组、元素数0、真实token/私钥签名匹配0，属于 `deterministic_scanner_false_positive`。扫描器、包装入口和workflow与 `origin/main` 同blob，`environment_drift=false`。这不是产品、性能或环境失败，但仍构成最终交付验证缺口。
 
@@ -26,4 +34,4 @@ S3唯一实际矩阵完成1次warm-up+5次测量，8场景的failure/warning均�
 
 ## 资源与边界
 
-全部历史根及tool16/R7/quality10/performance根继续保留。恢复区最终19,611文件/1,147,659,064 bytes<2GiB；全部observer和受控进程已退出，8000/8001及Python监听均为0。全部资源保留不删除，详细结果见evidence。
+历史执行时，恢复区最终为19,611文件/1,147,659,064 bytes<2GiB，全部observer和受控进程已退出，8000/8001及Python监听均为0；这些数字是验收时快照。当前承载tool16/R7/quality10/performance原始现场的仓库外Step 6根已经不存在，原始SQLite与运行目录不再可本地复查。Git内归档、索引、manifest、分片哈希和脱敏结论继续保留，详细校准见evidence与本地资源处置清单。

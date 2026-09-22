@@ -117,7 +117,7 @@ def make_control(
         permit_wait_seconds=permit_wait_seconds,
         pricing_policy=PricingPolicy.zero_cost(
             provider_kind=ProviderKind.FAKE,
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
         ),
     )
     return control, repository
@@ -134,7 +134,7 @@ def make_service(
         personas=load_bundled_personas(),
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

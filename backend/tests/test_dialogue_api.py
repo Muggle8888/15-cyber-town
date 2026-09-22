@@ -65,7 +65,7 @@ def make_service(provider: ProviderProtocol) -> DialogueService:
         personas={"neon_guide": load_bundled_persona("nia_v1.json")},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

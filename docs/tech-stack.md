@@ -1,17 +1,20 @@
-# 技术栈审查与候选基线
+# 技术栈与当前基线
 
 | 领域 | 推荐候选 | 解决的问题 | 替代项 / 成本 | 本轮结论与验证 |
 | --- | --- | --- | --- | --- |
-| 游戏前端 | Godot 4.7.2 Standard + GDScript | 2D 场景、输入、动画和 UI | Web/Unity；Godot 学习成本低且适合目标 | F-002 诊断场景与 F-003 独立对话场景均已验证；对话采用 `HTTPRequest`、15 秒 timeout、单在途和手动 retry，无 addon、.NET 或 export templates。 |
-| API | Python 3.12 + FastAPI 0.141.1 + Pydantic v2 | schema、错误语义、异步编排、OpenAPI | Flask/Starlette；FastAPI 需谨慎处理阻塞库 | 已锁定 Uvicorn 0.52.4、HTTPX 0.28.1；实现 `GET /api/v1/health` 与严格 `POST /api/v1/dialogue`。 |
-| LLM | DeepSeek `deepseek-v4-flash` + OpenAI SDK 3.3.1，经 Provider adapter | Nia/Ivo/Rhea 固定 persona 的角色化多轮对话与受限事实召回 | 其他 OpenAI-compatible 模型；成本和可用性外部化 | 固定 non-thinking/non-stream、temperature 0.6、max tokens 256、12 秒 timeout 和零 SDK retry；F-007 自动化保持 fake-only，F-005 专项授权的真实长期记忆评估已通过，7 次/USD 0.000690。 |
+| 游戏前端 | Godot 4.7.2 Standard + GDScript | 2D 场景、输入、动画和 UI | Web/Unity；Godot 学习成本低且适合目标 | F-010 产品入口为 640×360 像素城镇；F-002 连接页与 F-003 独立对话页保留为诊断入口。对话采用 `HTTPRequest`、15 秒 timeout、单在途和手动 retry，无 addon、.NET 或 export templates。 |
+| API | Python 3.12 + FastAPI 0.141.1 + Pydantic v2 | schema、错误语义、异步编排、OpenAPI | Flask/Starlette；FastAPI 需谨慎处理阻塞库 | 已锁定 Uvicorn 0.52.4、HTTPX 0.28.1；实现 health、严格 Dialogue v1 和只读 relationship GET。 |
+| LLM | DeepSeek `deepseek-v4-flash` + OpenAI SDK 3.3.1，经 Provider adapter | Nia/Ivo/Rhea 固定 persona 的角色化多轮对话与受限事实召回 | 其他 OpenAI-compatible 模型；成本和可用性外部化 | 固定 non-thinking/non-stream、temperature 0.6、max tokens 256、12 秒 timeout 和零 SDK retry；当前统一自动化与CI保持fake-only，历史F-005专项真实评估已通过。 |
 | Agent runtime | 自建轻量领域运行时 | 显式控制上下文、状态、日志和安全边界 | HelloAgents；后者适合作为学习对照 | 倾向自建；先做 provider/agent 端口，避免框架锁定。 |
-| 结构化状态 | Python 3.12 标准库 `sqlite3` | 低敏感长期事实、事务幂等、过期/遗忘及独立真实调用预算台账 | PostgreSQL；留给多人/部署阶段 | F-005 已实现受限 schema/repository、默认启动装配、`BEGIN IMMEDIATE`、2 秒 busy timeout、双元 scope 和 metadata-only 台账；自动化隔离 composition 项目根及 pytest 临时数据库，真实专项使用 Git 忽略的独立验收库与台账；旧测试误创建的正式路径文件已按用户专项授权定向删除。 |
+| 结构化状态 | Python 3.12 标准库 `sqlite3` | 长期事实、关系状态、事务幂等、过期/遗忘 | PostgreSQL；留给多人/部署阶段 | 业务 repository 使用追加迁移、参数化事务和双元 scope；同步 SQLite 通过受限执行器移出事件循环；自动化只使用隔离临时数据库。 |
+| 控制状态 | 独立 control SQLite | 安全、预算、成本、permit、重试和熔断的原子状态 | 内存计数器；无法支持跨进程一致性 | F-009 通过9个追加迁移维护控制状态，provider dispatch 前必须取得确定性许可，失败与结算保持可追踪。 |
 | 语义记忆 | F-005 不引入 Qdrant、embedding 或 FTS | 只有规则检索出现经验证缺口时才评估语义召回 | SQLite FTS、Qdrant local/remote；增加 embedding、运维和隐私成本 | 固定 72 项结构化 golden set precision/recall 均 1.00；没有引入第二存储的当前依据。 |
 | 通信 | HTTP REST | 单轮对话及状态查询 | SSE/WebSocket；复杂度更高 | 第一版锁定 REST，设定升级触发条件。 |
-| 可观测性 | 结构化日志 + trace_id + 脱敏事件 | 调试、成本、延迟和安全审计 | OpenTelemetry/外部平台；后续再选 | F-003 只输出 allowlist 元数据，不写 JSONL/SQLite；禁止 key、prompt、玩家消息、模型回复和 provider body 落盘。 |
+| 可观测性 | 结构化日志 + trace_id + 独立 observability SQLite | 调试、成本、延迟、安全审计和离线报告 | OpenTelemetry/外部平台；后续再选 | F-008/F-009 通过4个追加迁移持久化紧凑脱敏事件；只保存 allowlist 元数据，禁止 key、prompt、玩家消息、模型回复、reasoning 和 provider body 落盘。 |
 
-## 时效性核对（2026-08-24）
+## 时效性核对（2026-08-24 历史快照）
+
+以下外部版本、模型能力、价格和上游文档结论只代表2026-08-24的调研快照，不作为当前实时事实；未来新增真实Provider、升级依赖或部署前必须重新核验官方来源。
 
 - 参考章使用 Godot + FastAPI + HelloAgents + SQLite/Qdrant 的四层结构，源码仍位于 `code/chapter15/Helloagents-AI-Town`；架构思想有效，但不能视其为生产模板。
 - Godot stable 文档仍提供 `HTTPRequest`，并要求同一节点避免并发请求，建议普通 REST 设置 1–10 秒的显式 timeout。
@@ -29,7 +32,7 @@
 - Schema validator：开发依赖 `jsonschema 4.26.x`，用 Draft 2020-12 validator 和 UUID format checker 直接验证派生契约；`types-jsonschema` 提供严格类型检查。
 - 统一质量入口：`uv run --frozen python scripts/quality.py`，顺序运行安全预检、lock freshness、ruff、mypy、schema drift、Godot import/unit、真实 loopback integration、pytest 和安全复检。
 - CI：GitHub Actions `ubuntu-latest`；checkout 与 setup-uv 固定完整 commit，uv 固定 `0.6.14`，Python 由 `.python-version` 固定为 `3.12.10`；仅 `contents: read`，无 secrets、服务容器、发布或业务外部调用。
-- Git：`origin` 指向私有仓库 `wcnm8888/15-cyber-town`；F-001 通过 PR #1 交付，F-002 的交付与归档事实由 PR #2 记录。
+- Git：规范 `origin` 为 `Muggle8888/15-cyber-town`；F-009 通过 PR #13 合并，当前正式基线为 `75171492070bddddffef58cc4f0fe9552d40bb77`。
 - v1 契约：Pydantic v2 strict models 已实现；未知字段和类型强制转换被拒绝，JSON Schema 使用 Draft 2020-12 并由导出器确定性生成。
 
 ## F-002 连通基线
@@ -40,14 +43,28 @@
 - 统一门禁已扩展为 Godot editor import、GDScript unit、9 个真实 loopback 场景和 Python pytest；集成工具不访问公网、LLM 或数据库，并验证 redirect target 不被访问。
 - 已验证事实：Windows Godot 4.7.2 对无监听 loopback 的结果为 `RESULT_TIMEOUT`；非 2xx fixture 映射为 unavailable。该平台差异已由独立 QA、用户 UAT 和 GitHub Linux CI 共同复核。
 
-## F-003 单 NPC 对话基线
+## F-003 单 NPC 对话历史基线
 
 - Python 运行依赖新增并锁定 `openai 3.3.1`；SDK 只允许由 `infrastructure/llm` adapter 导入，application/domain 使用 provider-neutral protocol。
 - DeepSeek 固定 `deepseek-v4-flash` 与 `https://api.deepseek.com`，non-thinking、non-stream、temperature 0.6、max tokens 256、12 秒 timeout、SDK `max_retries=0`；provider 默认 disabled。
 - 固定 persona 为 `neon_guide / Nia`、版本 `nia_v1`；API 为严格 `POST /api/v1/dialogue`，Godot timeout 15 秒且只允许手动 Retry。
 - 真实 Step 5 验收共 13 次请求、1770 输入 token、809 输出 token；按 2026-08-25 官方峰值价格保守估算 USD 0.00184668，rubric 12/12，真实 Godot 端到端通过。
 - 本机 SOCKS `ALL_PROXY` 与未锁定的 `socksio` 不兼容；验收只在子进程移除该变量并保留 HTTP/HTTPS 代理，不新增依赖或修改系统配置。
-- 自动测试与 CI 继续 fake-only，无 API key、真实 provider 或费用。数据库、记忆、多 NPC、流式输出与 R-04 均未实现。
+- 当时的自动测试与 CI 为 fake-only，无 API key、真实 provider 或费用；该切片尚未实现数据库、记忆或多 NPC。后续 F-004—F-009 已增加这些能力中的结构化记忆、多 NPC、关系、安全、控制和可观测性，但仍未实现流式输出。
+
+## F-007—F-009 当前扩展
+
+- F-007 将 persona registry 扩展为 Nia/Ivo/Rhea，并保持玩家、NPC、会话、长期事实和关系状态的严格隔离。
+- F-008 增加持久化脱敏可观测性、离线评估和报告入口，不保存对话正文或模型内部推理。
+- F-009 增加输入安全、限流、预算、成本归因、provider permit、重试/熔断、异步 SQLite 边界、控制/可观测 SQLite 及固定性能门禁。
+- 统一质量入口与 GitHub CI 仍为 synthetic/fake-only；真实 provider、部署、外部数据库和生产环境不属于当前默认运行边界。
+
+## F-010 基础可玩客户端
+
+- 产品主入口为 640×360 逻辑视口、整数倍缩放的暖色傍晚像素街区；地图与角色使用 Tiny RPG Fantasy CC0 素材，短提示音使用 Kenney RPG Audio CC0，中文 UI 使用 Noto Sans CJK SC OFL。
+- 玩家四向移动并由有限摄像机跟随；三名 NPC 固定站位，最近目标才显示互动提示。打开对话后暂停移动，发送期间禁用关闭、切换和重复提交。
+- 每名 NPC 在本次启动内保留独立 conversation ID、最近六回合、重试上下文和关系快照；游戏重启会清空这些客户端状态，不改变后端长期事实与关系契约。
+- 不新增 WebSocket、任务、寻路、世界状态 API 或模型驱动动作；公开 Dialogue v1 和 relationship GET 保持不变。
 
 来源： [HelloAgents 第十五章](https://github.com/datawhalechina/hello-agents/blob/main/docs/chapter15/%E7%AC%AC%E5%8D%81%E4%BA%94%E7%AB%A0%20%E6%9E%84%E5%BB%BA%E8%B5%9B%E5%8D%9A%E5%B0%8F%E9%95%87.md)、[Godot HTTPRequest](https://docs.godotengine.org/en/stable/classes/class_httprequest.html)、[FastAPI 并发说明](https://fastapi.tiangolo.com/async/)、[DeepSeek 模型与价格](https://api-docs.deepseek.com/quick_start/pricing/)、[Qdrant local mode](https://qdrant.tech/documentation/frameworks/langchain/)。
 

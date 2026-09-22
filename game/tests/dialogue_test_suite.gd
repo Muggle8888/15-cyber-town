@@ -387,30 +387,27 @@ func _test_switching_npc_replaces_scope_and_suppresses_late_reply(client_script:
 	)
 	_assert_equal(client.active_npc_id(), "neon_guide", "Nia remains the default NPC")
 	var nia_conversation: String = client.conversation_id()
-	_assert_true(client.begin_send("Nia request that will become stale"), "Nia request starts")
-	var stale_generation: int = client.active_generation()
-	var stale_payload: Dictionary = JSON.parse_string(bodies[0])
-
-	_assert_true(client.switch_npc("signal_archivist"), "approved NPC switch succeeds")
-	_assert_equal(client.active_npc_id(), "signal_archivist", "Ivo becomes active")
-	_assert_true(client.conversation_id() != nia_conversation, "NPC switch creates conversation")
-	_assert_false(client.is_request_in_flight(), "old NPC request is invalidated")
-	_assert_false(client.can_retry(), "old NPC retry payload is cleared")
-	_assert_equal(client.latest_reply, "", "old NPC reply is cleared")
-	_assert_equal(client.latest_trace_id, "", "old NPC trace is cleared")
-	_assert_equal(client.state, &"idle", "new NPC returns to idle")
-
-	var stale_success := VALID_SUCCESS.duplicate()
-	stale_success["request_id"] = stale_payload["request_id"]
-	stale_success["conversation_id"] = stale_payload["conversation_id"]
+	_assert_true(client.begin_send("Nia request"), "Nia request starts")
+	_assert_false(client.switch_npc("signal_archivist"), "NPC switch is blocked while sending")
+	_assert_equal(client.active_npc_id(), "neon_guide", "blocked switch preserves active NPC")
+	var nia_payload: Dictionary = JSON.parse_string(bodies[0])
+	var nia_success := VALID_SUCCESS.duplicate()
+	nia_success["request_id"] = nia_payload["request_id"]
+	nia_success["conversation_id"] = nia_payload["conversation_id"]
+	nia_success["reply"] = "Nia-owned reply"
 	client.handle_response(
-		stale_generation,
+		client.active_generation(),
 		HTTPRequest.RESULT_SUCCESS,
 		200,
-		JSON.stringify(stale_success).to_utf8_buffer(),
+		JSON.stringify(nia_success).to_utf8_buffer(),
 	)
-	_assert_equal(client.state, &"idle", "late Nia callback cannot overwrite Ivo idle")
-	_assert_equal(client.latest_reply, "", "late Nia reply remains hidden")
+
+	_assert_true(client.switch_npc("signal_archivist"), "approved NPC switch succeeds after reply")
+	_assert_equal(client.active_npc_id(), "signal_archivist", "Ivo becomes active")
+	_assert_true(client.conversation_id() != nia_conversation, "NPC switch creates conversation")
+	_assert_false(client.is_request_in_flight(), "completed NPC request is released")
+	_assert_equal(client.history().size(), 0, "new NPC starts with isolated history")
+	_assert_equal(client.state, &"idle", "new NPC returns to idle")
 
 	_assert_true(client.begin_send("Ivo-owned request"), "Ivo request starts")
 	var ivo_payload: Dictionary = JSON.parse_string(bodies[1])
@@ -430,6 +427,15 @@ func _test_switching_npc_replaces_scope_and_suppresses_late_reply(client_script:
 		JSON.stringify(ivo_success).to_utf8_buffer(),
 	)
 	_assert_equal(client.latest_reply, "Ivo-owned reply", "active Ivo reply is accepted")
+	var ivo_conversation: String = client.conversation_id()
+	_assert_true(client.switch_npc("neon_guide"), "switching back to Nia succeeds")
+	_assert_equal(client.conversation_id(), nia_conversation, "Nia conversation is restored")
+	_assert_equal(client.latest_reply, "Nia-owned reply", "Nia reply is restored")
+	_assert_equal(client.history().size(), 1, "Nia history is restored")
+	_assert_true(client.switch_npc("signal_archivist"), "switching back to Ivo succeeds")
+	_assert_equal(client.conversation_id(), ivo_conversation, "Ivo conversation is restored")
+	_assert_equal(client.history().size(), 1, "Ivo history is restored")
+	_assert_equal(client.session_count(), 2, "only two NPC sessions were created")
 
 	var before_invalid: String = client.conversation_id()
 	_assert_false(client.switch_npc("unknown_npc"), "unknown NPC switch fails closed")
@@ -451,36 +457,40 @@ func _test_rapid_npc_switch_property(client_script: Script) -> void:
 		return OK
 	)
 	var npc_ids := ["neon_guide", "signal_archivist", "night_courier"]
-	var conversations := {client.conversation_id(): true}
+	var conversations := {"neon_guide": client.conversation_id()}
 	var request_ids := {}
 	for index in range(30):
 		var current_npc: String = npc_ids[index % npc_ids.size()]
 		var next_npc: String = npc_ids[(index + 1) % npc_ids.size()]
 		_assert_equal(client.active_npc_id(), current_npc, "rapid switch current NPC")
 		_assert_true(client.begin_send("rapid switch %d" % index), "rapid request starts")
-		var generation: int = client.active_generation()
 		var payload: Dictionary = JSON.parse_string(bodies[index])
 		request_ids[String(payload["request_id"])] = true
-		_assert_true(client.switch_npc(next_npc), "rapid approved switch succeeds")
-		conversations[client.conversation_id()] = true
-
-		var stale_success := VALID_SUCCESS.duplicate()
-		stale_success["request_id"] = payload["request_id"]
-		stale_success["conversation_id"] = payload["conversation_id"]
-		stale_success["npc_id"] = current_npc
-		stale_success["reply"] = "stale reply %d" % index
+		_assert_false(client.switch_npc(next_npc), "rapid switch is blocked in flight")
+		var current_success := VALID_SUCCESS.duplicate()
+		current_success["request_id"] = payload["request_id"]
+		current_success["conversation_id"] = payload["conversation_id"]
+		current_success["npc_id"] = current_npc
+		current_success["reply"] = "reply %d" % index
 		client.handle_response(
-			generation,
+			client.active_generation(),
 			HTTPRequest.RESULT_SUCCESS,
 			200,
-			JSON.stringify(stale_success).to_utf8_buffer(),
+			JSON.stringify(current_success).to_utf8_buffer(),
 		)
-		_assert_equal(client.state, &"idle", "rapid stale callback remains inert")
-		_assert_equal(client.latest_reply, "", "rapid stale reply remains hidden")
-		_assert_equal(client.latest_trace_id, "", "rapid stale trace remains hidden")
-		_assert_false(client.can_retry(), "rapid switch never retains Retry")
-	_assert_equal(conversations.size(), 31, "every rapid switch creates a conversation")
+		_assert_true(client.switch_npc(next_npc), "rapid approved switch succeeds after reply")
+		if not conversations.has(next_npc):
+			conversations[next_npc] = client.conversation_id()
+		else:
+			_assert_equal(
+				client.conversation_id(), conversations[next_npc], "rapid switch restores conversation"
+			)
+	_assert_equal(conversations.size(), 3, "rapid switching creates one session per NPC")
+	_assert_equal(client.session_count(), 3, "session count is bounded by approved NPCs")
 	_assert_equal(request_ids.size(), 30, "every rapid Send creates a request id")
+	for npc_id: String in npc_ids:
+		_assert_true(client.switch_npc(npc_id), "history inspection switch succeeds")
+		_assert_equal(client.history().size(), 6, "each NPC retains only six recent turns")
 	client.free()
 
 
@@ -640,8 +650,8 @@ func _test_relationship_switch_replaces_scope_and_suppresses_late_snapshot(
 func _test_scene_contract() -> void:
 	_assert_equal(
 		ProjectSettings.get_setting("application/run/main_scene"),
-		"res://scenes/backend_status.tscn",
-		"F-002 health diagnostic remains the default main scene",
+		"res://scenes/town.tscn",
+		"F-010 town is the default product scene",
 	)
 	var packed_scene: PackedScene = load(SCENE_PATH)
 	_assert_true(packed_scene != null, "dialogue scene loads")

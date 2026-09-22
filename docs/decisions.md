@@ -120,3 +120,27 @@
 - SQLite：保持唯一真相源，迁移机制从单一 `0001` checksum 校验升级为有序追加校验；新增 `0002_relationship_state.sql`，禁止修改 F-005 已有 `0001_long_term_memory.sql` 或引入第二数据库。
 - API/UI：新增严格只读关系 GET，不修改冻结 Dialogue v1；Godot 仅在用户批准最小视觉契约后做低保真只读展示。
 - 后果：F-006 已在 fake-only 边界内完成并由 PR #6 squash merge 到 `main`；同次 JSON completion 的建议只作为不可信 metadata，确定性引擎与 SQLite 事务保留唯一状态权。4040 次规则/冷却裁决、24 个对抗建议、2 个 UTC 日界、Step 6 黑盒操纵/并发 QA、Step 7 fake-only Godot UAT 与最终 `1257 passed` 门禁均未确认产品缺陷；公开 Dialogue v1 不变，新增关系 GET 和 Godot 低保真读取。未读取 `.env`、不调用真实 provider、不复用 F-005 的费用、台账或隔离数据库。
+
+## ADR-017：F-007 使用固定三 Persona 与严格 scope 隔离
+
+- 状态：已锁定（F-007 已完成并归档）。
+- 决策：persona registry 只允许 Nia、Ivo、Rhea；每次请求只装配一个与 `npc_id` 精确匹配的版本化 persona。短期记忆使用 `(player_id, npc_id, conversation_id)`，长期事实和关系使用 `(player_id, npc_id)`。
+- 后果：模型 client 可以共享，但任何可变 persona、记忆或关系状态不得共享；未知和有损规范化的 NPC 在 provider 与持久化前 fail-closed。Godot 切换 NPC 时必须抑制旧回调。
+
+## ADR-018：F-008 可观测性使用独立脱敏 SQLite 真相源
+
+- 状态：已锁定（F-008 已完成并由 PR #12 归档）。
+- 决策：持久化观测事件与业务/控制状态分离，通过 application protocol 写入独立 observability SQLite；事件 schema 只允许 trace、结果码、计数、延迟、usage、成本和安全分类等元数据。
+- 后果：原始 prompt、玩家消息、模型回复、密钥、reasoning 和 provider body 永不进入普通日志或观测 SQLite；观测报告可以离线生成，但不能被当成业务状态真相源。
+
+## ADR-019：F-009 Provider Dispatch 由确定性安全与预算控制拥有
+
+- 状态：已锁定（F-009 Step 0—7、PR #13 和合并后 CI 完成）。
+- 决策：输入安全、频率、预算窗口、成本预留、provider permit、重试和熔断均在 adapter 调用前后由确定性控制层执行；控制状态使用独立 SQLite 和追加迁移。LLM 不得自行绕过、放宽或结算这些规则。
+- 后果：被拒绝请求的 provider dispatch 必须为 0；成功、失败、超时和重试都具有可审计归因。同步 SQLite 通过受限执行边界移出事件循环，API/domain 不直接执行 SQL。
+
+## ADR-020：F-009 最终验收采用冻结 QA 适配器与一次性性能矩阵
+
+- 状态：已锁定（2026-09-18 完成）。
+- 决策：专项 QA runner 只组合现有 quality、fixture、资源守卫和报告结构，不发展为第二个通用沙箱。最终完整质量批次固定为 `native-quality-10`，性能只允许一次 warm-up + 5 次测量，阈值与冻结版本绑定。
+- 后果：quality10、性能矩阵及其修复/运行额度均已消费，文档收尾不重跑。仓库外原始运行根当前不存在；长期证据以 Git 内归档、机器索引、哈希和脱敏结论为准。

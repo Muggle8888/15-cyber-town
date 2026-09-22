@@ -42,7 +42,7 @@ from cyber_town.infrastructure.llm.fake import FakeProvider
 REQUEST = ProviderRequest(
     system_prompt="Frozen synthetic persona prompt.",
     user_message="Where is the quiet street?",
-    model="deepseek-v4-flash",
+    model="deepseek-flash",
     temperature=0.6,
     max_tokens=256,
     timeout_seconds=12.0,
@@ -110,7 +110,7 @@ def sdk_response(
     tool_calls: Any = None,
     reasoning_content: Any = None,
     usage: Any = "default",
-    model: Any = "deepseek-v4-flash",
+    model: Any = "deepseek-flash",
 ) -> SimpleNamespace:
     message = SimpleNamespace(
         content=content,
@@ -197,7 +197,7 @@ def test_adapter_sends_frozen_non_thinking_non_streaming_request() -> None:
 
     assert len(client.completions.calls) == 1
     assert client.completions.calls[0] == {
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-flash",
         "messages": [
             {
                 "role": "system",
@@ -221,7 +221,7 @@ def test_adapter_sends_frozen_non_thinking_non_streaming_request() -> None:
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="deepseek",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=23, completion_tokens=11),
         relationship_suggestion={"category": "neutral", "confidence": 100},
     )
@@ -582,7 +582,7 @@ def test_enabled_composition_accepts_only_an_injected_offline_test_provider() ->
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=23, completion_tokens=11),
     )
     provider = FakeProvider([completion])
@@ -687,7 +687,7 @@ def test_sdk_debug_logging_never_emits_prompt_or_player_message(
                 "id": "synthetic-completion",
                 "object": "chat.completion",
                 "created": 0,
-                "model": "deepseek-v4-flash",
+                "model": "deepseek-flash",
                 "choices": [
                     {
                         "index": 0,

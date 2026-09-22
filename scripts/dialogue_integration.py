@@ -34,21 +34,22 @@ from cyber_town.infrastructure.persistence.sqlite_relationship import SqliteRela
 
 HOST = "127.0.0.1"
 PORT = 8000
+TOWN_PORT = 18010
 DIALOGUE_PATH = "/api/v1/dialogue"
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TWO_LINE_VIEWPORT_REPLY = "Nia begins a fresh conversation with her retained relationship snapshot."
 
 
-def _port_is_open() -> bool:
+def _port_is_open(port: int = PORT) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.settimeout(0.2)
-        return probe.connect_ex((HOST, PORT)) == 0
+        return probe.connect_ex((HOST, port)) == 0
 
 
-def _wait_for_port(expected_open: bool) -> None:
+def _wait_for_port(expected_open: bool, port: int = PORT) -> None:
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        if _port_is_open() is expected_open:
+        if _port_is_open(port) is expected_open:
             return
         time.sleep(0.05)
     expected = "open" if expected_open else "released"
@@ -63,7 +64,7 @@ def _completion(content: object = "Nia offers a synthetic offline reply.") -> Pr
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=4, completion_tokens=3),
         relationship_suggestion={"category": "friendly", "confidence": 80},
     )
@@ -158,7 +159,7 @@ def _fake_application(
             personas=load_bundled_personas(),
             provider=provider,
             config=DialogueExecutionConfig(
-                model="deepseek-v4-flash",
+                model="deepseek-flash",
                 temperature=0.6,
                 max_tokens=256,
                 timeout_seconds=12.0,
@@ -205,14 +206,14 @@ def _malformed_application(mode: str) -> tuple[FastAPI, dict[str, int]]:
 
 
 @contextlib.contextmanager
-def _fixture_server(application: FastAPI) -> Iterator[None]:
-    if _port_is_open():
-        raise RuntimeError(f"refusing to replace existing listener on {HOST}:{PORT}")
+def _fixture_server(application: FastAPI, port: int = PORT) -> Iterator[None]:
+    if _port_is_open(port):
+        raise RuntimeError(f"refusing to replace existing listener on {HOST}:{port}")
     server = uvicorn.Server(
         uvicorn.Config(
             application,
             host=HOST,
-            port=PORT,
+            port=port,
             access_log=False,
             log_config=None,
             log_level="critical",
@@ -221,14 +222,14 @@ def _fixture_server(application: FastAPI) -> Iterator[None]:
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     try:
-        _wait_for_port(True)
+        _wait_for_port(True, port)
         yield
     finally:
         server.should_exit = True
         thread.join(timeout=5.0)
         if thread.is_alive():
             raise RuntimeError("dialogue fixture server did not stop")
-        _wait_for_port(False)
+        _wait_for_port(False, port)
 
 
 def _run_godot(godot: Path, scenario: str) -> None:
@@ -258,6 +259,38 @@ def _run_multi_npc_godot(godot: Path) -> None:
             str(PROJECT_ROOT / "game"),
             "--script",
             "res://tests/run_multi_npc_fake_integration.gd",
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+    )
+
+
+def _run_town_godot(godot: Path, port: int = TOWN_PORT) -> None:
+    subprocess.run(
+        [
+            str(godot),
+            "--headless",
+            "--path",
+            str(PROJECT_ROOT / "game"),
+            "--script",
+            "res://tests/run_town_fake_integration.gd",
+            "--",
+            f"--base-url=http://{HOST}:{port}",
+            "--skip-health-check",
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+    )
+
+
+def _run_town_demo_godot(godot: Path, port: int = TOWN_PORT) -> None:
+    subprocess.run(
+        [
+            str(godot),
+            "--path",
+            str(PROJECT_ROOT / "game"),
+            "--",
+            f"--base-url=http://{HOST}:{port}",
         ],
         cwd=PROJECT_ROOT,
         check=True,
@@ -328,21 +361,85 @@ def run(godot: Path) -> None:
         if any(request.history_messages for request in provider.requests):
             raise RuntimeError("multi-NPC switch leaked short-term history across conversations")
 
+    # Exercise the product town scene through the same fake-only HTTP boundary.
+    with _fake_application(multi_npc_outcomes) as (application, provider):
+        with _fixture_server(application, TOWN_PORT):
+            _run_town_godot(godot, TOWN_PORT)
+        if provider.call_count != 3:
+            raise RuntimeError("town loopback expected exactly three fake provider calls")
+        if tuple(request.system_prompt for request in provider.requests) != expected_prompts:
+            raise RuntimeError("town loopback did not preserve persona prompt ownership")
+
     if _port_is_open():
         raise RuntimeError("dialogue integration left its loopback listener running")
-    print("Local fake FastAPI-Godot dialogue integration passed (10 base + multi-NPC)")
+    print(
+        "Local fake FastAPI-Godot dialogue integration passed "
+        "(10 base + diagnostic multi-NPC + town)"
+    )
+
+
+def run_town_only(godot: Path) -> None:
+    if not godot.is_file():
+        raise FileNotFoundError(f"Godot executable not found: {godot}")
+    if _port_is_open(TOWN_PORT):
+        raise RuntimeError(f"refusing to replace existing listener on {HOST}:{TOWN_PORT}")
+    outcomes = tuple(
+        _completion(f"{display_name} returns an isolated synthetic reply.")
+        for display_name in ("Nia", "Ivo", "Rhea")
+    )
+    with _fake_application(outcomes) as (application, provider):
+        with _fixture_server(application, TOWN_PORT):
+            _run_town_godot(godot, TOWN_PORT)
+        if provider.call_count != 3:
+            raise RuntimeError("town loopback expected exactly three fake provider calls")
+        personas = load_bundled_personas()
+        expected_prompts = tuple(
+            personas[npc_id].system_prompt
+            for npc_id in ("neon_guide", "signal_archivist", "night_courier")
+        )
+        if tuple(request.system_prompt for request in provider.requests) != expected_prompts:
+            raise RuntimeError("town loopback did not preserve persona prompt ownership")
+    if _port_is_open(TOWN_PORT):
+        raise RuntimeError("town integration left its loopback listener running")
+    print("Local fake FastAPI-Godot town integration passed (Nia, Ivo, Rhea)")
+
+
+def run_town_demo(godot: Path) -> None:
+    if not godot.is_file():
+        raise FileNotFoundError(f"Godot executable not found: {godot}")
+    if _port_is_open(TOWN_PORT):
+        raise RuntimeError(f"refusing to replace existing listener on {HOST}:{TOWN_PORT}")
+    outcomes = tuple(
+        _completion("这是一条本地离线演示回复, 不会调用真实模型。") for _index in range(60)
+    )
+    print(f"Starting fake-only playable town on http://{HOST}:{TOWN_PORT}")
+    with (
+        _fake_application(outcomes) as (application, _provider),
+        _fixture_server(application, TOWN_PORT),
+    ):
+        _run_town_demo_godot(godot, TOWN_PORT)
+    if _port_is_open(TOWN_PORT):
+        raise RuntimeError("town demo left its loopback listener running")
+    print("Fake-only playable town closed cleanly")
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--godot", required=True, type=Path)
+    parser.add_argument("--town-only", action="store_true")
+    parser.add_argument("--town-demo", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     arguments = _parse_args()
     try:
-        run(arguments.godot.resolve())
+        if arguments.town_demo:
+            run_town_demo(arguments.godot.resolve())
+        elif arguments.town_only:
+            run_town_only(arguments.godot.resolve())
+        else:
+            run(arguments.godot.resolve())
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
         print(f"Dialogue integration failed: {error}", file=sys.stderr)
         return 1

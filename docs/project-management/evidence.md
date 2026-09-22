@@ -1,10 +1,38 @@
-# F-009 当前证据索引
+# 项目证据索引
 
-更新时间：2026-09-18
+更新时间：2026-09-22
 
 ## 当前结论
 
-B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7限定分支与PR #13已完成归档包装、跨平台CI修复及首轮绿色Quality门禁；当前任务卡与实施计划已准备随同一PR归档。最终归档HEAD必须再次CI全绿后才可合并。
+B1、Q1、B2与R2已完成；QA observer恢复、tool16/R7、最终quality10及固定性能1+5均已通过。Step 7最终PR HEAD CI、PR #13合并及合并后`main` CI均已通过，任务卡与实施计划归档已经生效，F-009 授权已消费完毕。
+
+用户已批准 `F-010 Cyber Town 基础可玩版本` 的视觉基线、本地实现和首个 Godot 实机视觉门禁。城镇闭环、按 NPC 会话/历史、关系反馈、失败与重试、基础声音和中文字体已实现，并通过本地 Godot、fake HTTP、用户功能/手感试玩和修复后的统一全量质量。真实模型 UAT 和 Git 交付尚未完成，因此 F-010 仍为进行中。
+
+## 2026-09-21 基础可玩版本视觉预制作
+
+- 从干净的 `docs/f-009-post-merge-closeout@2666f54180f6f31c79de785f38a6ac64e58ea85b` 创建本地分支 `feat/playable-town`；未提交、推送或创建 PR。
+- 只读核验 Tiny RPG Fantasy、Ninja Adventure、MetroCity、Kenney Pixel Adventure UI、Kenney RPG Audio 与 Noto/Source Han CJK 字体的作者或发行方页面；未下载素材。
+- 使用 OpenAI 内置 `image_gen` 生成 1 张暖色傍晚像素街区概念图，项目副本为 `docs/design/playable-town/concept-v1.png`，1672×941、SHA-256 `851E55BE5900BD9C0213F7189A32C56DE0A30AE68549B42B5FAF5F0874F7EF63`。
+- 视觉合同与素材许可摘要见 [`visual-baseline.md`](../design/playable-town/visual-baseline.md)。概念图仅是设计参考，不是游戏资产或视觉验收通过证据。
+- 本轮未修改 `game/` 或后端，未启动服务、读取 `.env`、调用真实 Provider、下载素材或运行测试。下一步只等待用户视觉批准和任务编号确认。
+
+## 2026-09-21 文档偏移校准与本地资源复核
+
+只读文件系统复核确认 `E:/Agent/comprehensive-cases/15-cyber-town-f009`、`E:/Agent/cyber-town-f009-step5-tests` 和 `E:/Agent/cyber-town-f009-step6-qa` 均不存在。现有Git与文档证据不能确定删除时间、执行主体或外部授权链，因此只记录“观察为不存在”，不反向伪造删除执行记录。本次文档收尾未执行删除、移动、压缩、服务、测试、quality、性能或真实Provider调用。
+
+`git worktree list --porcelain` 仍登记 `E:/Agent/comprehensive-cases/15-cyber-town-f009`，HEAD为 `69da08982760cff23736a37cdd25c2c779a9ce36`，并报告 `prunable gitdir file points to non-existent location`。本轮没有运行会写入仓库元数据的 `git worktree prune/remove`，也没有删除本地或远程分支。原worktree的未提交`AGENTS.md`差异不再可从该路径读取，只保留2026-09-19清单中的摘要与SHA-256。
+
+两个仓库外证据根历史盘点合计4,480,321,135 bytes，其中的原始SQLite、运行目录和测试现场未完整进入Git，当前不能仅凭仓库恢复。必须长期保留的证据仍包括正式仓、`docs/project-management/`、归档任务卡、`docs/archive/F-009-过程记录-20260905/`、机器索引、manifest、9个分片及整体SHA-256。历史段落继续表示其记录时点的事实；当前资源状态以本节和[F-009本地资源处置清单](F-009-本地资源处置清单.md)为准。
+
+用户随后单独批准审查上述15个正式文档变化、提交并仅推送当前 `docs/f-009-post-merge-closeout` 分支。该授权不包含产品测试、quality/性能重跑、资源删除、`git worktree prune/remove`、分支删除、PR、合并或`main`修改；实际提交与远端分支结果以本轮Git复核为准。
+
+## 2026-09-19 PR #13合并、本地main同步与收尾证据
+
+GitHub仓库规范地址为 `https://github.com/Muggle8888/15-cyber-town.git`。PR [#13](https://github.com/Muggle8888/15-cyber-town/pull/13) 的最终HEAD为 `a0911b95b657f3fb557d2a422c15836e14fcb9fc`；最终PR Quality run [`35343077888`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35343077888) 为completed/success。PR于2026-09-18 20:10:43 +08:00合并，`main`合并提交为 `75171492070bddddffef58cc4f0fe9552d40bb77`；PR最终HEAD与该squash提交的Git tree一致。
+
+合并后`main`触发的Quality run [`35343297890`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35343297890) 为completed/success，证明远端主分支已通过交付后的完整CI门禁。正式仓origin已校准到规范地址，执行`git fetch origin`后，本地`main`从 `1a4fc2cdf142b00f823bebf9b2abe6e74ba23ab3`安全快进到 `75171492070bddddffef58cc4f0fe9552d40bb77`，随后从该提交创建本地文档收尾分支 `docs/f-009-post-merge-closeout`。
+
+本地整理前正式仓工作区干净。功能worktree `E:/Agent/comprehensive-cases/15-cyber-town-f009`继续保留，既有未暂存`AGENTS.md`修改未被覆盖；Step 6证据根 `E:/Agent/cyber-town-f009-step6-qa/recovery-20260905-01`继续保留。8000/8001监听均为0。本次收尾未运行测试、quality、性能、真实Provider或业务服务，未删除worktree、分支、证据或其他资源，也未新建PR或向远端推送。
 
 ## 2026-09-18 Step 7交付CI与归档准备证据
 
@@ -771,7 +799,7 @@ observer：native-monitor-ready记录root准确、父PID25992；native-summary c
 
 ## 2026-09-09 AST类型恢复与运行前冻结
 
-用户已批准局部类型适配及原唯一定向恢复。仅测试中ast.Module边界改为list[ast.stmt](methods)，原FunctionDef筛选、方法体及脚本均不变；没有Any/cast/ignore适配。原73809585保存点与18台账/2349资源逐项核对一致。本次完整静态复验按下方原五项准确命令，Ruff/format/AST/mypy/两仓diff均exit0；AST为2文件/3fixture且不导入QA，mypy两目标原strict/MYPYPATH及小写nul。初次失败记录保留，本次仅已批准的一次类型恢复及完整复验。
+用户已批准局部类型适配及原唯一定向恢复。仅测试中`ast.Module`边界改为`list[ast.stmt]`（变量`methods`），原`FunctionDef`筛选、方法体及脚本均不变；没有Any/cast/ignore适配。原73809585保存点与18台账/2349资源逐项核对一致。本次完整静态复验按下方原五项准确命令，Ruff/format/AST/mypy/两仓diff均exit0；AST为2文件/3fixture且不导入QA，mypy两目标原strict/MYPYPATH及小写nul。初次失败记录保留，本次仅已批准的一次类型恢复及完整复验。
 
 冻结聚合7d4bec7ad344569d572b6935a8ba4b6309d6571d6d7cf693472947fdd1686852；测试SHA5628b7acaefac8f392041315c88bcc3bfb716c22d04a59d5856a05f73493be41，脚本仍0ea8b15e2482ca4af8f967cf33833070f94372dbd69508dad9121e7797e47617。相对接续仅获批两行替换，其余99项不变，无尾空白；两仓分支/HEAD/staged0及100/19保持。新根/全部父链无reparse，端口8000/8001空闲，无相关进程，旧资源237263969bytes/18台账未变。
 
@@ -1285,3 +1313,64 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 新冻结 2bb5f5744af80e1223418310874c3d803141b8a34b0480fc51a02294501b6aa6；script b5254e4ccd2d1bc4fbfb1f0afcefd76ab18dd5f03b54d93704859f2b06e6df5f；test 250dd89dadd7f2cc1fd266e0916af85045a2a669614257a78aaa878099e56a27。只有两 QA 变化，其他 97 项不变。
 - 固定顶层 65 参数实例/11 函数：保留前条 52 项，B 在 C 前新增 test_startup_report_module_source_rejection(3)、test_startup_real_pytest_report_path(10)。A17→B46→C2。10 个真实报告回归 = import/runpy × call/setup/forged/invalid/canonical；每个子 pytest 先 test_control 通过，再 test_expected_failure 精确失败。非法字段要求 exit 3 和固定拒绝记录，其余要求 exit 1 和对应失败摘要；父回归核对模块名、节点/阶段、字段、计数、无串项和脱敏。当前数量来自 AST，不代表已经运行。
 - 原新根尚不存在，bootstrap 与封闭 2×5 子资源已预登记；本根/台账/子资源限额及父 observer/owner 守卫不变。唯一执行命令仍为 python.exe -B scripts/f009_step6_qa.py --identity-validation。机器证据只进新根，当前文档运行期不变；任何非预期失败即停。当前定向 0/1，不运行任何产品服务/Godot/quality/性能。
+
+## 2026-09-21/22 F-010 视觉批准与首个 Godot 状态
+
+- 用户批准代表性画面，并批准以 `F-010` 进入实现。
+- 正式资产根：`E:\Agent\comprehensive-cases\15-cyber-town\game\assets\third_party`。内容类别为 CC0 城镇/UI/音频素材和字体下载缓存；属于正式项目资产，不是临时证据根。
+- 来源与许可：Tiny RPG Fantasy 官方 itch.io 页面及包内 `public-license.pdf`；Kenney UI/RPG Audio 官方页面及包内 `License.txt`；清单见 `game/assets/third_party/THIRD_PARTY_ASSETS.md`。
+- 字体：首次中断的 Noto Sans CJK SC 缓存继续由 `.gitignore` 与 `.gdignore` 隔离；完整文件已复制到正式素材目录并接入 Godot，OpenType 头为 `OTTO`，SHA-256 为 `4D2E100498ED85AD46F3D39D1EDB5DA655FD6E0BE664EB789717D1D940EB2EDD`，OFL 许可证随文件保留。
+- Godot 导入缓存：沿用既有忽略目录 `E:\Agent\comprehensive-cases\15-cyber-town\game\.godot`（创建于 2026-08-24）；F-010 只会更新导入内容，不建立新的仓库外临时目录。
+- 视觉自检 v1：`docs/design/playable-town/godot-normal-v1.png`，保留但已被 v2 取代；发现草地过亮和半透明面板底色不均后，没有覆盖该文件。
+- 获批视觉门禁：`docs/design/playable-town/godot-normal-v2.png`，`640 × 360`，SHA-256 `B7EEF6F1601ED15E3E9A3F95BB1578A85864AF37505554C19DB751EACD0BAE79`；用户于 2026-09-22 明确通过。
+- 完整交互版截图：`docs/design/playable-town/godot-interactive-v3.png`，`640 × 360`，SHA-256 `B55691AD79360676CF5A717384EF59DC21E576F2C3C7C1320BA35AA4D646EEEE`。两张截图均由 Godot 4.7.2 正常渲染 fixture 保存，不是后端或真实模型验收。
+- 实现：DialogueClient 以三个固定 `npc_id` 保存启动期会话、最近六回合和重试上下文；发送期间拒绝关闭/切换/重复提交；RelationshipClient 按 NPC 缓存快照。镇 UI 显示加载、成功、降级、超时、不可用、非法输入、手动重试和关系升降，不显示分数、规则码或 trace。
+- 体验：四向玩家动画、NPC 待机、程序化低音量环境声、Kenney CC0 互动/按钮音和会话内静音已接入；无窗口测试不启动音频播放，避免测试退出时残留播放资源。
+- 验证：Godot headless editor import exit 0；`res://tests/run_town_tests.gd` 输出 `TOWN_TESTS=PASS`；`res://tests/run_tests.gd` 输出 `Godot dialogue tests passed` 和 `Godot connectivity tests passed`。独立 `127.0.0.1:18010` fake FastAPI—Godot 城镇回环输出 `GODOT_TOWN_FAKE=PASS npcs=Nia,Ivo,Rhea sessions=3`，验证三名 NPC 的 Persona 请求归属与启动期会话恢复；端口随后释放。Python Ruff 与 format 通过，严格 mypy 覆盖 132 个源码文件通过，`git diff --check` 通过，当前改动与非忽略新增文件的敏感信息扫描为 0 finding。
+- 首轮旧回归曾因预期的主入口契约变化失败 1 项；只将断言更新为城镇是产品入口、连接页仍可加载后，同组回归通过。连接和对话逻辑本身没有失败。
+- 历史 `127.0.0.1:8000/PID 33200` 在验证前后均保持监听，路径和命令行与交接一致；本轮未停止、复用或修改该进程。当前仍未执行：用户实际试玩、真实 Provider、`.env` 读取、统一全量质量入口、提交、推送、PR、合并或资源删除。
+
+## 2026-09-22 F-010 用户 Fake 模式功能与手感验收
+
+- 用户使用 `scripts/dialogue_integration.py --town-demo` 启动的 `127.0.0.1:18010` Fake Provider 城镇窗口完成实际试玩，并提供三张 Godot `Cyber Town (DEBUG)` 截图作为对话面板运行现场。
+- 用户明确确认：“除 Fake 固定回复外，功能和手感试玩通过。”本次用户验收覆盖玩家可见的移动/探索、NPC 互动、中文面板、会话记录、关系反馈、声音与整体手感；未报告需要修复的 F-010 问题。
+- 截图可见健康状态为“对话服务已连接”，Nia 对话可连续发送并显示历史，关系区域曾显示“关系升温”。固定回复“这是一条本地离线演示回复，不会调用真实模型”是 Fake Provider 的既定行为，不是 Persona、语义记忆或真实模型质量证据。
+- 用户确认后只读复核：`127.0.0.1:8000` 空闲；`127.0.0.1:18010` 仍由本轮 `--town-demo` 进程及其 Godot 子进程使用。依任务边界未根据 PID 停止进程，统一质量入口等待用户正常关闭窗口并自动释放端口。
+- 当前状态推进为 `PENDING_REAL_PROVIDER_UAT`，但统一全量质量入口仍未执行。仍未读取 `.env`、调用真实 Provider、提交、推送、创建 PR、合并或删除资源。
+
+## 2026-09-22 F-010 统一质量首次失败、行尾修复与最终通过
+
+- 用户正常关闭 Godot 试玩窗口后，只读确认 `127.0.0.1:8000` 与 `127.0.0.1:18010` 均空闲，未根据历史 PID 停止进程。
+- 首次执行 `uv run --frozen python scripts/quality.py`：策略/敏感信息预检、lock、Ruff、strict mypy（132 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础对话场景、诊断三 NPC 回环与城镇三 NPC 回环均通过；pytest 最终为 2104 passed、969 skipped、2 failed，质量入口 exit 1。
+- 两个失败均为 `backend/tests/test_sqlite_control.py::test_v9_product_upgrade_preserves_rows_and_restarts[7/8]`。迁移 SQL 的 Git 索引为 LF，但本机 `core.autocrlf=true` 且 `.gitattributes` 未约束 `*.sql`，工作区文件被检出为 CRLF；测试按原始字节比较冻结 SQL，在首个换行处不一致。数据库迁移、行数据、完整性检查和 F-010 产品逻辑没有失败。
+- 最小修复是在 `.gitattributes` 增加 `*.sql text eol=lf`，并将当前 `0009_provider_permit_scope_storage.sql` 恢复为与 Git 索引相同的 LF blob；迁移 SQL 内容和索引 blob `f6ee016e5c33d65bf0a0e8a038ec5601641261eb` 未改变。
+- 第一次定向命令误用 `uv run pytest`，因仓库根未进入 `sys.path` 产生 23 个 `ModuleNotFoundError: scripts`，另 45 项通过；该结果属于命令入口不等价，不是代码回归。改用与项目一致的 `uv run --frozen python -m pytest backend/tests/test_sqlite_control.py -q` 后为 68 passed。
+- 修复后重新执行完整统一质量：所有前置门禁、Godot 测试与回环再次通过；pytest 为 2106 passed、969 个既有历史根条件 skip、0 failed；最终 ignore policy 和敏感信息复检通过，入口输出 `[quality] all checks passed`，exit 0。
+- 最终端口复核为 `8000/18010` 均空闲。仍未读取 `.env`、调用真实 Provider、提交、推送、创建 PR、合并或删除资源。
+
+## 2026-09-22 F-010 真实模型 UAT 授权与资源预登记
+
+- 用户明确授权读取本地测试配置并执行 DeepSeek 真实模型 UAT：计划 7 次，失败时最多增加 2 次，硬上限 9 次；总费用硬上限 USD 0.05；SDK 自动重试保持 0。授权不包含 Git 提交、推送、PR 或合并。
+- 当前官方规范模型名为 `deepseek-flash`；项目旧名 `deepseek-v4-flash` 已被官方标记为兼容别名并路由到 DeepSeek-V4.1-Flash。执行前先完成规范名兼容及全部离线回归，不以真实调用试错。
+- 预登记资源根：`E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-010`，所属 `F-010 / Step 4 real-provider UAT`。计划包含业务长期事实与关系 SQLite、控制 SQLite；只保存低敏感结构化测试事实、确定性关系状态及脱敏控制元数据，不保存原始玩家消息、完整模型回复、密钥、provider body 或 reasoning。
+- 预登记验收台账：`E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-010.sqlite3`，仅保存授权标识、步骤、模型、状态、token、费用与时间戳；不复用或修改 F-005 台账。
+- 上述资源预计保留至 F-010 Git 交付完成并由用户决定后续处置；Codex 不自动删除。创建前须确认父链无 reparse，路径处于项目受忽略 `data/` 范围，且 `8000/18010` 空闲。
+
+## 2026-09-22 F-010 真实模型 UAT 离线门禁与未决调用停止
+
+- 规范模型名改为 `deepseek-flash`，按当前峰值价格冻结输入 USD 0.30/M token、输出 USD 1.20/M token；单次最大预留 10,138 微美元。新增控制数据库 v10 迁移，将预留与结算字段上限从 2,000 调整到 11,000 微美元，并保留 v9 数据、外键和完整性检查。
+- UAT runner 使用独立业务、控制和验收账本数据库；真实请求前原子预留，收到官方 usage 后先结算再做语义断言。控制台与文档不记录原始玩家文本、完整模型回复、Provider body、密钥或 reasoning。
+- 第三轮最小修复后，相关定向测试为 601 passed、53 skipped、0 failed。更新后的统一质量入口通过 Ruff、strict mypy（134 个源码文件）、Schema、Godot import/unit、9 个连接场景、10 个基础 Fake 对话场景、三 NPC 与城镇 Fake 回环；完整 pytest 为 2111 passed、969 个既有历史条件 skip、0 failed，最终策略与敏感信息复检通过。
+- 无调用预检通过：模型 `deepseek-flash`、计划 7 次、硬上限 9 次、费用硬上限 50,000 微美元。首次 `--run` 在 Provider 初始化阶段因继承的 SOCKS `ALL_PROXY` 与未安装 `socksio` 产生 `ImportError`；账本确认调用 0、未决 0、费用 0。随后只在 UAT 子进程移除 `ALL_PROXY`，保留 HTTP/HTTPS 代理，未修改系统配置、依赖或 `.env`。
+- 第一次实际语义调用已结算，但 Nia 身份回复未包含要求的字面名字，记为 1 次失败语义尝试；不保存或展示回复内容。加强字面姓名提示并增加“从既有账本累计值续跑、要求本次新增恰好 7 次”的测试，Ruff、strict mypy 与 3 项专项测试通过。
+- 完整重试在中途返回 `DialogueUseCaseError` 后立即停止。当时验收账本汇总为 3 条调用记录，其中 2 条已结算、1 条 `unknown`；已结算合计 478 输入 token、88 输出 token、250 微美元。未知调用的实际 Provider 结果与费用不能可靠判定，因此未直接重试或把 F-010 标记完成。
+- 隔离资源保留在 `E:\Agent\comprehensive-cases\15-cyber-town\data\uat\f-010` 与 `E:\Agent\comprehensive-cases\15-cyber-town\data\acceptance-ledgers\f-010.sqlite3`，由用户决定后续处置；本轮未删除、清理、提交、推送、创建 PR 或修改远端。
+
+## 2026-09-22 F-010 未知结果保守结算与真实模型 UAT 完成
+
+- 为保留未知结果且不绕过 9 次/50,000 微美元硬上限，验收账本新增 `acceptance_unknown_resolutions` 追加表。原 `unknown` 调用行不修改；解决记录把该次 10,138 微美元最大预留计入总费用，只有已授权的 F-010 单一未知记录可解决，重复相同操作幂等，冲突或其他步骤拒绝。
+- 恢复流程把前 3 次调用作为不可回收历史，只允许最后 6 次。为保持完整覆盖，在一次 Ivo 请求中合并身份与“不知道”措辞，并在计费前直接断言 Nia Provider 请求包含独立长期事实、Ivo Provider 请求长期事实为空；没有减少 Persona、多轮、长期召回、跨 NPC 隔离或关系验证范围。
+- 追加式结算与恢复流程专项验证为 59 passed；随后统一质量再次完整通过，pytest 为 2115 passed、969 个既有条件 skip、0 failed，Ruff、strict mypy（134 个源码文件）、Schema、Godot import/unit、连接场景、Fake 对话/三 NPC/城镇回环和前后敏感信息门禁全部通过。
+- 真实账本解决结果：3 次既有调用、0 未决、保守费用 10,388 微美元。最终恢复命令只在子进程移除 `ALL_PROXY`，使用 `deepseek-flash`、零 SDK 自动重试和原隔离数据库；新增 6 次后输出 `F010_REAL_UAT=PASS`。
+- 最终真实 UAT 汇总：9 次总调用，9 项恢复检查；8 次取得官方 usage，累计 2,065 输入 token、307 输出 token；1 次未知结果按最大预留计费；保守总费用 11,130 微美元（USD 0.011130），低于 USD 0.05 硬上限，未决 0。
+- 通过项：Nia 身份与同会话多轮名字召回；确定性本地长期事实写入零 Provider 调用；服务重建后 Nia 召回 `霓虹夜市`；Ivo 身份与 Provider 边界无 Nia 长期事实；Rhea 身份与关系事件；关系事件未跨 NPC 泄漏。原始玩家文本、完整模型回复、密钥、Provider body 和 reasoning 均未写入日志或文档。

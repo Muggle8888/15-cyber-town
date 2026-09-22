@@ -4,7 +4,7 @@
 
 测试分类、契约变更影响与 skip 说明遵循 `E:\Vibe coding\vibe-methodology\06-test-selection-matrix.md`；新增 QA runner 的就绪验证、受控失败诊断与性能指标适用性遵循同目录 `08-quality-gates.md`。本项目实际工具组合包含 Python、SQLite、Git/uv/Ruff 和 Godot；只验证当前执行会用到的组合。
 
-当前任务的用例清单、工具/代码版本、冻结性能契约、运行次数和资源授权以正式任务卡及证据索引为准。下文各 F 编号的既往结果属于相应历史切片，不能充当 F-009 当前验收；常规命令不解除当前 Step 的缓存隔离、fake-only 或失败停止条件。
+当前任务的用例清单、工具/代码版本、冻结性能契约、运行次数和资源授权以正式任务卡及证据索引为准。下文各 F 编号的既往结果属于相应历史切片，不能单独替代 F-009 最终验收结论；F-009 的已完成结果以任务归档与 evidence 为准。常规命令不自动获得新的缓存、外部调用、运行或重跑授权。
 
 ## 测试分层
 
@@ -26,11 +26,11 @@ UI 必须经过设计稿确认、冻结参考、同尺寸真实截图、用户�
 
 ### 当前统一入口
 
-运行 `uv run --frozen python scripts/quality.py`。入口先执行 ignore/敏感信息预检，再执行 lock freshness、ruff、mypy、schema drift、Godot editor import、GDScript 单测、9 个健康 loopback、10 个对话/关系 fake loopback、1 个三 NPC 切换 loopback 和 pytest，最后复查仓库策略。每个子进程禁用 dotenv、移除继承的 provider key 并固定 provider 为 disabled；不需要真实凭证、真实 LLM、外部数据库或业务外部服务，持久化测试只使用 pytest 或短生命周期 loopback 隔离 SQLite。
+运行 `uv run --frozen python scripts/quality.py`。入口先执行 ignore/敏感信息预检，再执行 lock freshness、ruff、mypy、schema drift、Godot editor import、GDScript 单测、9 个健康 loopback、10 个对话/关系 fake loopback、诊断页与城镇各 1 个三 NPC loopback 和 pytest，最后复查仓库策略。每个子进程禁用 dotenv、移除继承的 provider key 并固定 provider 为 disabled；不需要真实凭证、真实 LLM、外部数据库或业务外部服务，持久化测试只使用 pytest 或短生命周期 loopback 隔离 SQLite。
 
 负向测试覆盖：worktree/index 内容分叉、staged/missing `.gitignore`、symlink/异常 mode、大小写与多种配置语法凭证键、精确 placeholder、BOM/非 UTF-8/超大文本、二进制魔数伪装、结构化配置重复键/递归/过深输入 fail-closed、敏感预检顺序、子命令缺失与失败传播、配置环境隔离、未知/多余 schema drift，以及用 Draft 2020-12 validator 在不依赖可选 format assertion 的情况下验证合法与非法 request/response/error fixtures。socket monkeypatch 只证明本地策略 helper 不触网；统一入口的离线边界由命令白名单、无外部服务配置和独立 QA 共同验证，不把该单元测试夸大为操作系统级断网证明。
 
-GitHub Actions 在 `main` push、pull request 和人工触发时先执行 `uv sync --locked --all-groups`，再运行完全相同的质量入口。workflow 不使用 secrets、写权限、服务容器或发布步骤。本地 UAT、等价复现、最终独立审查和 PR #1 的 GitHub-hosted Linux runner 验证均已通过。
+GitHub Actions 在 `main` push、pull request 和人工触发时先执行 `uv sync --locked --all-groups`，再运行完全相同的质量入口。workflow 不使用 secrets、写权限、服务容器或发布步骤。各历史任务保留各自UAT和CI证据；当前F-009最终PR HEAD与合并后`main`的GitHub-hosted Linux质量门禁均已通过。
 
 ### F-002 自动化与 UAT 分工
 
@@ -76,6 +76,23 @@ GitHub Actions 在 `main` push、pull request 和人工触发时先执行 `uv sy
 - FakeProvider→DialogueService→关系 GET 额外回归 `score`、`instruction` 和 bool 置信度操纵 suggestion：Dialogue v1 仍为 `completed`，关系事件只能是 `candidate_invalid / delta 0` 且初始分数不变。SQLite 4 writer 同 scope 并发仍只允许一个有效 +2 变化。
 - Step 6 独立黑盒 HTTP QA 在三个短生命周期 FakeProvider 服务中验证初始/成功/重放/scope/422、越权 suggestion 和四请求并发；未确认产品缺陷。应用内浏览器拒绝本机 loopback，因此该工具限制单列记录，不将其伪装为用户 Godot 视觉验收。
 - Step 7 的首张用户截图曾发现固定 640×400 视口裁切 `Reason`；最小修复后，重新用户窗口 UAT 已确认 `Reason: rule_friendly` 完整可见。该视觉验收由场景/集成几何断言补强，但仍以用户截图为最终人工证据。
+
+### F-007 多 NPC 隔离
+
+- 单元与集成测试覆盖 Nia/Ivo/Rhea 固定 persona registry、未知或有损 `npc_id` 拒绝、三元短期 scope、双元长期事实/关系 scope、跨玩家与跨 NPC 串扰、关系 GET 和旧回调抑制。
+- Godot fake loopback 额外执行一个三 NPC 切换场景；共享 provider client 不得携带 persona 或记忆状态。公开 Dialogue v1 保持冻结。
+
+### F-008 持久化可观测性
+
+- repository、迁移、报告与恢复测试覆盖严格事件 schema、trace 关联、紧凑存储、聚合、损坏/锁冲突和脱敏；观测失败不能泄漏正文，也不能悄悄改变业务结果。
+- 事件只允许 allowlist 元数据。密钥、prompt、玩家消息、模型回复、reasoning 和 provider body 的持久化均由负向测试拒绝。
+
+### F-009 安全、成本与性能
+
+- 自动化覆盖输入安全、频率、预算窗口、成本预留/结算、provider permit、重试/熔断、并发竞争、控制/可观测 SQLite 迁移、WAL/空间、故障恢复和 dispatch ownership。
+- F-009 专项 QA runner 是验收适配器，不是第二个通用质量系统；最终产品质量入口仍为 `scripts/quality.py`。专项 runner 的历史根、次数、冻结哈希与结果只由任务卡和 evidence 解释。
+- 最终 `native-quality-10` 九阶段均 exit 0，完整 pytest 为 2,942 passed、133 个既有条件 skip、0 failed；固定性能只执行一次 warm-up + 5 次测量并满足冻结合同。额度已经消费，不因文档收尾重新运行。
+- 当前仓库外 Step 5/Step 6 原始运行根已经不存在，不能重放或补写原始证据；Git 内归档、机器索引、哈希与脱敏结论继续保留。
 
 ## F-003 已归档首切片验收状态
 

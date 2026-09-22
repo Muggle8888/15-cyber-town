@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/town/town_scene.gd" id="1_town"]
+
+[node name="Town" type="Node2D"]
+script = ExtResource("1_town")
+
+[node name="Ground" type="Node2D" parent="."]
+z_index = -20
+
+[node name="World" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Ui" type="CanvasLayer" parent="."]
+layer = 20

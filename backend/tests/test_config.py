@@ -121,7 +121,7 @@ def test_default_settings_do_not_require_a_real_provider_key() -> None:
     assert settings.app_env is AppEnvironment.DEVELOPMENT
     assert settings.llm_provider is LlmProvider.DISABLED
     assert settings.llm_api_key is None
-    assert settings.llm_model == "deepseek-v4-flash"
+    assert settings.llm_model == "deepseek-flash"
     assert settings.llm_base_url == "https://api.deepseek.com"
     assert settings.llm_temperature == 0.6
     assert settings.llm_max_tokens == 256

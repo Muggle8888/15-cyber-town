@@ -26,10 +26,12 @@ var _request_in_flight := false
 var _retry_allowed := false
 var _request_sender := Callable()
 var _active_completion := Callable()
+var _sessions: Dictionary = {}
 
 
 func _init() -> void:
-	_conversation_id = _generate_uuid()
+	_ensure_session(_active_npc_id)
+	_restore_active_session()
 
 
 func _ready() -> void:
@@ -53,23 +55,37 @@ func conversation_id() -> String:
 	return _conversation_id
 
 
+func history() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var session: Dictionary = _sessions.get(_active_npc_id, {})
+	for turn: Dictionary in session.get("history", []):
+		result.append(turn.duplicate(true))
+	return result
+
+
+func session_count() -> int:
+	return _sessions.size()
+
+
+func conversation_id_for(npc_id: String) -> String:
+	if not _sessions.has(npc_id):
+		return ""
+	return String((_sessions[npc_id] as Dictionary).get("conversation_id", ""))
+
+
 func switch_npc(npc_id: String) -> bool:
 	if not _npc_registry.is_allowed(npc_id):
 		return false
 	if npc_id == _active_npc_id:
 		return true
-	if _request_in_flight and is_instance_valid(_http_request):
-		_disconnect_active_completion()
-		_http_request.cancel_request()
+	if _request_in_flight:
+		return false
+	_sync_active_session()
 	_generation += 1
-	_request_in_flight = false
 	_active_npc_id = npc_id
-	_conversation_id = _generate_uuid()
-	_clear_retry_context()
-	latest_reply = ""
-	latest_trace_id = ""
-	latest_status = ""
-	_set_state(DialogueState.IDLE)
+	_ensure_session(npc_id)
+	_restore_active_session()
+	state_changed.emit(state)
 	return true
 
 
@@ -152,6 +168,8 @@ func handle_response(
 	latest_trace_id = String(outcome["trace_id"])
 	latest_status = String(outcome["status"])
 	_retry_allowed = bool(outcome["retryable"])
+	if outcome["state"] == DialogueState.SUCCESS:
+		_append_history(_frozen_message, latest_reply, latest_status == "degraded")
 	_set_state(outcome["state"])
 
 
@@ -226,7 +244,60 @@ func _disconnect_active_completion() -> void:
 
 func _set_state(next_state: StringName) -> void:
 	state = next_state
+	_sync_active_session()
 	state_changed.emit(state)
+
+
+func _ensure_session(npc_id: String) -> void:
+	if _sessions.has(npc_id):
+		return
+	_sessions[npc_id] = {
+		"conversation_id": _generate_uuid(),
+		"history": [],
+		"frozen_payload_json": "",
+		"frozen_message": "",
+		"state": DialogueState.IDLE,
+		"latest_reply": "",
+		"latest_trace_id": "",
+		"latest_status": "",
+		"retry_allowed": false,
+	}
+
+
+func _sync_active_session() -> void:
+	_ensure_session(_active_npc_id)
+	var session: Dictionary = _sessions[_active_npc_id]
+	session["conversation_id"] = _conversation_id
+	session["frozen_payload_json"] = _frozen_payload_json
+	session["frozen_message"] = _frozen_message
+	session["state"] = state
+	session["latest_reply"] = latest_reply
+	session["latest_trace_id"] = latest_trace_id
+	session["latest_status"] = latest_status
+	session["retry_allowed"] = _retry_allowed
+	_sessions[_active_npc_id] = session
+
+
+func _restore_active_session() -> void:
+	var session: Dictionary = _sessions[_active_npc_id]
+	_conversation_id = String(session["conversation_id"])
+	_frozen_payload_json = String(session["frozen_payload_json"])
+	_frozen_message = String(session["frozen_message"])
+	state = StringName(session["state"])
+	latest_reply = String(session["latest_reply"])
+	latest_trace_id = String(session["latest_trace_id"])
+	latest_status = String(session["latest_status"])
+	_retry_allowed = bool(session["retry_allowed"])
+
+
+func _append_history(message: String, reply: String, degraded: bool) -> void:
+	var session: Dictionary = _sessions[_active_npc_id]
+	var turns: Array = session.get("history", [])
+	turns.append({"message": message, "reply": reply, "degraded": degraded})
+	while turns.size() > 6:
+		turns.pop_front()
+	session["history"] = turns
+	_sessions[_active_npc_id] = session
 
 
 func _generate_uuid() -> String:

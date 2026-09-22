@@ -71,7 +71,7 @@ def completion(
         tool_calls_present=False,
         reasoning_content_present=False,
         provider="fake",
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         usage=ProviderUsage(prompt_tokens=3, completion_tokens=2),
         relationship_suggestion=relationship_suggestion,
     )
@@ -96,7 +96,7 @@ def request(
 
 def config() -> DialogueExecutionConfig:
     return DialogueExecutionConfig(
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         temperature=0.6,
         max_tokens=256,
         timeout_seconds=12.0,

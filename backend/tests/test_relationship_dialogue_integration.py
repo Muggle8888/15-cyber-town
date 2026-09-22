@@ -36,7 +36,7 @@ async def test_completed_dialogue_records_one_relationship_event_and_get_keeps_v
                 tool_calls_present=False,
                 reasoning_content_present=False,
                 provider="fake",
-                model="deepseek-v4-flash",
+                model="deepseek-flash",
                 relationship_suggestion={"category": "supportive", "confidence": 80},
             )
         ]
@@ -46,7 +46,7 @@ async def test_completed_dialogue_records_one_relationship_event_and_get_keeps_v
         personas={persona.npc_id: persona},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,
@@ -235,7 +235,7 @@ async def test_manipulated_completion_suggestion_is_inert_but_dialogue_stays_com
                 tool_calls_present=False,
                 reasoning_content_present=False,
                 provider="fake",
-                model="deepseek-v4-flash",
+                model="deepseek-flash",
                 relationship_suggestion=suggestion,
             )
         ]
@@ -245,7 +245,7 @@ async def test_manipulated_completion_suggestion_is_inert_but_dialogue_stays_com
         personas={persona.npc_id: persona},
         provider=provider,
         config=DialogueExecutionConfig(
-            model="deepseek-v4-flash",
+            model="deepseek-flash",
             temperature=0.6,
             max_tokens=256,
             timeout_seconds=12.0,

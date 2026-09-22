@@ -25,7 +25,7 @@ class LlmProvider(StrEnum):
     DEEPSEEK = "deepseek"
 
 
-DEEPSEEK_MODEL = "deepseek-v4-flash"
+DEEPSEEK_MODEL = "deepseek-flash"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 MEMORY_SCOPE_FIELDS: tuple[str, str, str] = ("player_id", "npc_id", "conversation_id")
 PROJECT_ROOT = Path(__file__).resolve().parents[3]

@@ -25,7 +25,7 @@ def provider_request(
     return ProviderRequest(
         system_prompt="Synthetic persona",
         user_message=user_message,
-        model="deepseek-v4-flash",
+        model="deepseek-flash",
         temperature=0.6,
         max_tokens=256,
         timeout_seconds=12.0,
