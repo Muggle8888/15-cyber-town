@@ -1433,3 +1433,11 @@ B 的 import/runpy 两种加载方式 × call/setup/forged/invalid/canonical 共
 - 交付前只读核验：当前分支 `feat/f-011-npc-return-visit`、HEAD `2f48184dba8f352f36335d339ed2fd7b6c3ee93d`，与本地 `main` 和本地跟踪引用 `origin/main` 基线一致；远端为 `https://github.com/Muggle8888/15-cyber-town.git`。该远端状态尚未 fetch 刷新，推送前仍须获取并核对最新状态。
 - F-011 UAT 资源继续被 `.gitignore` 排除，不进入提交。预登记 PR 正文临时文件为 `E:\Agent\.codex-temp\cyber-town-f011-pr.md`，只保存用户可见的 PR 标题与描述，不含密钥或运行时数据；保留至交付结束，由用户决定后续处置，Codex 不删除。
 - 交付按两个内部门禁执行：首次功能提交与 PR HEAD CI 通过后，才在同一 PR 准备任务卡归档和当前状态重置；归档提交改变 PR HEAD 后必须等待新的最终 CI 通过，才允许 squash merge。
+
+## 2026-09-22 F-011 首次 PR CI 与待生效归档
+
+- 精确暂存 20 个 F-011 文件，提交前 staged diff check 和敏感信息扫描均通过；没有未暂存或未跟踪的可见文件，受忽略的 UAT 数据与验收账本未进入索引。功能提交为 `5b42c529508160fab8447b8780faa59666774a4e`。
+- 首次 `git push` 在写入远端前因 Windows Schannel TLS 握手失败停止。只读诊断确认 GitHub 443 与 API 可用、远端分支尚不存在；仅在重试子进程移除 `ALL_PROXY`，未修改系统或 Git 配置，随后推送成功。本地与远端任务分支为 0/0 分歧。
+- PR [#16](https://github.com/Muggle8888/15-cyber-town/pull/16) 以 `main` 为 base、`feat/f-011-npc-return-visit` 为 head 创建。首次 HEAD `5b42c529` 的 Quality run [`35708257630`](https://github.com/Muggle8888/15-cyber-town/actions/runs/35708257630) 于 1 分 43 秒内完成并通过，PR 状态可合并。
+- 首次 CI 通过后，活动任务卡与实施计划复制到 `docs/archive/task-cards/F-011-npc-return-visit.md` 和 `F-011-implementation-plan.md`，当前任务与实施计划重置为无活动任务。本归档在 PR #16 合并前只表示“已准备”，不能提前视为已在 `main` 生效。
+- 归档提交将改变 PR HEAD，必须等待该 HEAD 的新一轮 Quality CI 成功后才能 squash merge。最终 HEAD、CI、merge SHA 和合并状态由 GitHub 记录，不为抄写这些事实另建第二个 PR。
